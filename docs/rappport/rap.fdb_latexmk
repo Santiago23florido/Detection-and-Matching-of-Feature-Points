@@ -1,7 +1,7 @@
 # Fdb version 4
-["pdflatex"] 1770197867.11228 "/home/santiago/images/docs/rappport/rap.tex" "rap.pdf" "rap" 1770197867.50431 0
+["pdflatex"] 1770199518.06822 "/home/santiago/images/docs/rappport/rap.tex" "rap.pdf" "rap" 1770199518.4275 0
   "/etc/texmf/web2c/texmf.cnf" 1762418151.39241 475 c0e671620eb5563b2130f56340a5fde8 ""
-  "/home/santiago/images/docs/rappport/rap.tex" 1770197866.52686 1815 75a77e2a4ea4db1d621d2bc5f780bf96 ""
+  "/home/santiago/images/docs/rappport/rap.tex" 1770199517.47651 1855 474cb35fad2090a8e98a23e5b1548a0b ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmb7t.tfm" 1136768653 2172 fd0c924230362ff848a33632ed45dc23 ""
@@ -13,6 +13,7 @@
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmr7t.tfm" 1136768653 2124 2601a75482e9426d33db523edf23570a ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmr8r.tfm" 1136768653 4408 25b74d011a4c66b7f212c0cc3c90061b ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmr8t.tfm" 1136768653 6672 e3ab9e37e925f3045c9005e6d1473d56 ""
+  "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmrc8t.tfm" 1136768653 16648 7e91c60ebf91b9c60e16ef52b3070f9c ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmri7t.tfm" 1136768653 2288 f478fc8fed18759effb59f3dad7f3084 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmri8r.tfm" 1136768653 4640 532ca3305aad10cc01d769f3f91f1029 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/adobe/times/ptmri8t.tfm" 1136768653 6944 94c55ad86e6ea2826f78ba2240d50df9 ""
@@ -29,6 +30,7 @@
   "/usr/share/texlive/texmf-dist/fonts/vf/adobe/times/ptmb8t.vf" 1136768653 2340 df9c920cc5688ebbf16a93f45ce7bdd3 ""
   "/usr/share/texlive/texmf-dist/fonts/vf/adobe/times/ptmbi8t.vf" 1136768653 2324 51908dae6e03953a90119973962f0e4d ""
   "/usr/share/texlive/texmf-dist/fonts/vf/adobe/times/ptmr8t.vf" 1136768653 2348 91706c542228501c410c266421fbe30c ""
+  "/usr/share/texlive/texmf-dist/fonts/vf/adobe/times/ptmrc8t.vf" 1136768653 3608 78e4c999d9e69f03f448158d01821741 ""
   "/usr/share/texlive/texmf-dist/fonts/vf/adobe/times/ptmri8t.vf" 1136768653 2328 6cd7df782b09b29cfc4d93e55b6b9a59 ""
   "/usr/share/texlive/texmf-dist/tex/latex/base/fontenc.sty" 1705352648 5119 a04a8b68ab4f6ce800a41f7f8012a10e ""
   "/usr/share/texlive/texmf-dist/tex/latex/base/inputenc.sty" 1705352648 5048 425739d70251273bf93e3d51f3c40048 ""
@@ -40,8 +42,9 @@
   "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1762418170.6716 5472669 54eaf61a88b6b7896ebd0dac973cb29c ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1762418224 8214723 66b18d21e2ef1ecd23d5c483e8c60b4e ""
-  "rap.aux" 1770197867.46338 32 3985256e7290058c681f74d7a3565a19 "pdflatex"
-  "rap.tex" 1770197866.52686 1815 75a77e2a4ea4db1d621d2bc5f780bf96 ""
+  "rap.aux" 1770199518.39912 143 e7eb6a12516fb88d1ce1f6d151952f91 "pdflatex"
+  "rap.tex" 1770199517.47651 1855 474cb35fad2090a8e98a23e5b1548a0b ""
+  "sections/descriptors_pairing.tex" 1770199377.7301 34 95f93332cc8707b29eff840b7be7e394 ""
   (generated)
   "rap.aux"
   "rap.log"
