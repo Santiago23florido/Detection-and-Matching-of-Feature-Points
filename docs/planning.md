@@ -4,7 +4,7 @@ Split the TP on feature detection and matching (Q1-Q9) so 3 people can work in p
 **Division into 3 tracks**
 
 
-Person A (Santiago): Convolutions and gradients
+Person A (Jose): Convolutions and gradients
 - Q1: Run `Convolutions.py`, compare time and results between 2D scan and `cv2.filter2D`, and explain `cv2.imread`, `cv2.copyMakeBorder`, `cv2.imshow`, `cv2.waitKey`, `plt.imshow`.
 - Q2: Explain why the kernel `[ [0,-1,0],[-1,5,-1],[0,-1,0] ]` enhances contrast.
 - Q3: Modify `Convolutions.py` to compute `Ix`, `Iy`, and `||∇I||`, and document handling of negative values and normalization for visualization.
@@ -14,7 +14,7 @@ Person B (Javier): Harris detector + quantitative evaluation
 - Q5: Analyze parameter effects (window size, alpha), comment on results, and propose multi-scale extension and minimum separation `r`.
 - Q9: Propose quantitative evaluation with known deformation using `cv2.warpAffine`.
 
-Person C (Jose): ORB, KAZE and matching
+Person C (Santiago): ORB, KAZE and matching
 - Q6: Run `Features_Detect.py`, compare ORB vs KAZE, parameters and visual repeatability.
 - Q7: Explain ORB and KAZE descriptors, scale/rotation invariance (separate detector vs descriptor).
 - Q8: Compare `Features_Match_CrossCheck.py`, `Features_Match_RatioTest.py`, `Features_Match_FLANN.py` and justify distance metrics used.
