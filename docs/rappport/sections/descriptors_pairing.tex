@@ -128,3 +128,79 @@ This can be computed efficiently as in Eq.~(\ref{eq:hamming_popcount}):
 BRIEF emphasizes this efficiency, and ORB notes SSE popcount optimizations in their matching implementation \cite{calonder_brief}.
 
 Finally, in ORB an image pyramid of scales is constructed and, for each scale, FAST corners are detected using a test threshold and are assigned a score using FAST\_SCORE or Harris; the strongest features are retained, generally using Harris; the orientation $\theta$ is computed via the intensity centroid moments; and finally a descriptor is computed using a smoothed patch, a rotated sampling pattern, and an rBRIEF learned test set, in order to be able to perform descriptor matching using Hamming distance computed via popcount. It is worth highlighting that the way ORB is constructed allows it to handle in-plane rotation, which is addressed through the centroid-based orientation and the steered sampling pattern. Additionally, it can handle image scale by implementing pyramidal detection; however, it remains not fully affine-invariant to viewpoint changes, because projective changes can still break patch appearance.
+
+\subsection{KAZE}
+
+As in the case of ORB, KAZE is an algorithm for the detection and description of keypoints, but unlike ORB it constructs the scale space with nonlinear, edge-preserving diffusion; it detects points with a Hessian-type detector and describes them with a (M-)SURF-type descriptor over that nonlinear scale space \cite{alcantarilla_kaze}.
+
+
+KAZE starts with the construction of the nonlinear scale space; for that, a family of images $L(x,y,t)$ is defined, where $t$ plays the role of scale or diffusion time, and it is modeled using the PDE given in Eq.~(\ref{eq:kaze_pde}):
+
+\begin{equation}
+\label{eq:kaze_pde}
+\frac{\partial L}{\partial t}=\operatorname{div}\!\big(c(x,y,t)\,\nabla L\big).
+\end{equation}
+
+Here, $\nabla L$ points toward where the image changes the fastest (edges $=$ large gradient). The diffusion ``flow'' can be seen as Eq.~(\ref{eq:flux}):
+
+\begin{equation}
+\label{eq:flux}
+\mathbf{J}=-c\,\nabla L,
+\end{equation}
+
+then $\operatorname{div}(\mathbf{J})$ measures how much flow ``accumulates'' or ``leaves'' a point, resulting in a definition of brightness propagation analogous to heat propagation, but with a conductivity $c$ that is a controllable parameter \cite{alcantarilla_kaze}. This is precisely the key, because $c$ depends on the gradient, as expressed in Eq.~(\ref{eq:conductivity_generic}):
+
+\begin{equation}
+\label{eq:conductivity_generic}
+c(x,y,t)=g\!\left(\left\lVert \nabla L(x,y,t)\right\rVert\right).
+\end{equation}
+
+
+It should be noted that this gradient is not the raw gradient of the image, but rather the gradient computed on a Gaussian-smoothed version.
+
+If $\left\lvert\nabla L_\sigma\right\rvert$ is small, it corresponds to a flat region in the image, and what is sought is to increase diffusion; however, in the opposite case, if $\left\lvert\nabla L_\sigma\right\rvert$ is large, it corresponds to a strong edge in the image where the main intention is not to cross that edge \cite{perona_malik_1990}. This is ensured by the two typical forms of $g$ given in Eq.~(\ref{eq:g1}) and Eq.~(\ref{eq:g2}):
+
+\begin{equation}
+\label{eq:g1}
+g_1(s)=\exp\!\left(-\frac{s^2}{k^2}\right),
+\end{equation}
+
+\begin{equation}
+\label{eq:g2}
+g_2(s)=\frac{1}{1+\frac{s^2}{k^2}}.
+\end{equation}
+
+In both definitions, a fundamental element that emerges is $k$, which is a contrast threshold used as a separation between variations that are considered small for the image, such as noise or textures, and those that are considered large, such as an edge. When $k$ is small, many gradients are considered as edges, which implies that diffusion is stopped in many parts of the image, that is, it is smoothed less; whereas if $k$ is large, only very large gradients are considered as edges, so there is more diffusion and the image is smoothed more.
+
+Since this problem does not have a closed-form analytic solution, KAZE uses numerical schemes that are semi-implicit and that use additive operator splitting in order to construct the scale space with stability \cite{alcantarilla_kaze}.
+
+At each level or scale of KAZE, the Hessian response is computed through its determinant and maxima are searched both in position and in scale, as given in Eq.~(\ref{eq:kaze_hessian_response}):
+
+\begin{equation}
+\label{eq:kaze_hessian_response}
+L_{\text{Hessian}}=\sigma^2\left(L_{xx}L_{yy}-L_{xy}^2\right).
+\end{equation}
+
+Here, $L_{xx}$, $L_{yy}$, and $L_{xy}$ are the second derivatives (local curvature) measured on $L$, and the factor $\sigma^2$ is a normalization so that the response is comparable across scales (because derivatives ``shrink'' as scale increases).
+
+Then, KAZE searches for extrema in spatial neighborhoods and across scales, and estimates with precision the position of the maximum that was found with the Hessian response in Eq.~(\ref{eq:kaze_hessian_response}). KAZE also computes a SURF-type orientation: it takes first-order derivatives in a circular neighborhood with a radius proportional to $\omega$, weights them with a Gaussian, and searches---through a sliding angular window---for a dominant angle.
+
+For the descriptor, KAZE makes use of an M-SURF descriptor, as already mentioned, adapted to the nonlinear scale space, integrating gradient-type responses over sub-patches; the objective of this type of descriptor is to capture how intensity changes around the point in a way that is robust to noise \cite{bay_surf_2008}.
+
+For a keypoint at scale $\sigma_i$, it computes derivatives $L_x$ and $L_y$ at that scale. It builds a $4\times 4$ grid of subregions around the keypoint \cite{alcantarilla_kaze}. In each subregion it sums a vector of the form shown in Eq.~(\ref{eq:msurf_dv}):
+
+\begin{equation}
+\label{eq:msurf_dv}
+d_v=\left(\sum L_x,\;\sum L_y,\;\sum |L_x|,\;\sum |L_y|\right).
+\end{equation}
+
+It then concatenates all subregion vectors to obtain a typical 64-dimensional descriptor, and finally normalizes it. If orientation is used, the sampling is rotated and the derivatives are also computed in that orientation.
+
+This allows, finally, each KAZE keypoint to be described as in Eq.~(\ref{eq:kaze_keypoint_tuple}), together with a descriptor (64D or extended depending on the implementation).
+
+\begin{equation}
+\label{eq:kaze_keypoint_tuple}
+(x,y,\sigma,\theta)
+\end{equation}
+
+Given the implementation of extrema detection in nonlinear scale spaces constructed by diffusion, the detector is scale-invariant. The computation of the dominant orientation of the keypoint in order to build the descriptor makes it rotation-invariant. If the upright mode of OpenCV is used, although the algorithm becomes faster, it loses that invariance property by not computing the dominant orientation. It can be said that, due to the normalization inherent to the M-SURF descriptor, this algorithm also obtains descriptors that are approximately contrast-invariant. Finally, KAZE typically behaves well for moderate viewpoints, but it is not ``affine-invariant'' in the strong sense.
