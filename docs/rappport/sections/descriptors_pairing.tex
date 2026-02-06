@@ -348,3 +348,9 @@ Therefore, in its case the distance employed for comparison that makes the most 
 d_2(\mathbf{d},\mathbf{d}')=\|\mathbf{d}-\mathbf{d}'\|_2
 =\sqrt{\sum_{i=1}^{n}(d_i-d'_i)^2}.
 \end{equation}
+
+\subsection{Quantitative Performance of descriptors-pairing}
+
+It is proposed to evaluate the response of the descriptor and pairing algorithms by analyzing their performance under known geometric transformations applied to the images. For this, it is proposed to analyze the geometric transformations for which the methods are invariant, in order to make evident the pairing dynamics under modifications in rotation and scale. Additionally, it is also proposed to include a transformation that resembles a change of point of view in the image, in order to observe how the pairing precision behaves as the change becomes more significant. For this purpose, the definition of a 2D transformation matrix in OpenCV is used, and then, with that matrix and \texttt{warpAffine}, the transformation is applied to the image.
+
+On the side of the implemented algorithm for the evaluation, it is proposed to use the ORB and KAZE detectors for the identification of a set of keypoints in each image, and afterwards, with these, to apply the transformation matrix to the positions of the keypoints of the original image and use the already defined transformation matrix to map the expected position of those keypoints in the transformed image. This is then compared with the position of the nearest keypoint found with \texttt{ratioTest} and FLANN; the $L_2$ distance is measured between the expected position and the detected keypoint position, and a threshold value is proposed to identify the pairing as an error, delivering as a result of the estimation the percentage of correct pairings over the reviewed pairs.
