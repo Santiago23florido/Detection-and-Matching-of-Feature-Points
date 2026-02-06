@@ -204,3 +204,147 @@ This allows, finally, each KAZE keypoint to be described as in Eq.~(\ref{eq:kaze
 \end{equation}
 
 Given the implementation of extrema detection in nonlinear scale spaces constructed by diffusion, the detector is scale-invariant. The computation of the dominant orientation of the keypoint in order to build the descriptor makes it rotation-invariant. If the upright mode of OpenCV is used, although the algorithm becomes faster, it loses that invariance property by not computing the dominant orientation. It can be said that, due to the normalization inherent to the M-SURF descriptor, this algorithm also obtains descriptors that are approximately contrast-invariant. Finally, KAZE typically behaves well for moderate viewpoints, but it is not ``affine-invariant'' in the strong sense.
+
+\subsection{Qualitative Performance of descriptors-pairing}
+
+As a preliminary stage, it is proposed to qualitatively analyze the results obtained by the descriptor and pairing for matching, FLANN and CROSSCHECK, with and without ratio test, for the ORB and KAZE descriptors on two images for which the second is the result of a transformation of the first.
+
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/Features_Match_CrossCheck_orb.png}
+  \caption{Cross-check matching results using ORB.}
+  \label{fig:crosscheck-orb}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/Features_Match_CrossCheck_kaze.png}
+  \caption{Cross-check matching results using KAZE.}
+  \label{fig:crosscheck-kaze}
+\end{figure}
+
+In Figs.~\ref{fig:crosscheck-orb}--\ref{fig:crosscheck-kaze} the results of the implementation of the detectors and matching using ORB and KAZE, respectively, are plotted with cross-check matching for a unique value, which consists of taking the descriptors with the smallest distance in the two images and verifying that the correspondence is mutual; if it is, it is identified as a match. In both cases, the best 200 matches between the two images are plotted with lines. From the comparison of the use of both pipelines, results emerge that are immediately striking for the analysis.
+
+It was mentioned in the description of the ORB algorithm that, by combining FAST with steered BRIEF, it is very fast and rotation-invariant, and if it uses a pyramid as is the case, it can handle scale reasonably well; however, including a change in the point of view of the image, which is the case between the compared images, causes anisotropy that makes the pointwise intensity comparisons of the bits performed by BRIEF reduce the rate of correct matches by comparing different entities.
+
+The effect of viewpoint on pairing using cross-check is visible for ORB, since under a slight variation in viewpoint one would expect vectors between the identified pairs with similar directions and lengths; however, in this case, a considerable number of vectors with directions that are not very coherent with the viewpoint change becomes evident. There is also clear evidence of some matches connecting structures that are semantically distinct in the sense of the image, and there is also an accumulation of matches on repeated similar structures that generate ambiguity.
+
+Additionally, in the case of the ORB algorithm, selecting a number $n$ of features---in this case 500---causes regions with strong textures, such as the central area of the image, to occupy most of the keypoints identified in the figure, mainly due to the very fast corner response that is accentuated in structures that are mostly repetitive.
+
+On the other hand, in the case of the KAZE implementation with cross-checking, a much more uniform behavior of the vectors between the paired keypoints identified in the images is observed, with few outliers among the 200 best matches. It is important to highlight that this is favored because, although KAZE is also not constructed to be invariant to point-of-view modifications, the fact that KAZE operates on a nonlinear scale space, achieved through a diffusion process, in some sense reduces localization precision and distinctiveness, so that under slight viewpoint variations it can still deliver repeatable results in the presence of small geometric deformations. Additionally, the form of the descriptor, which uses the notion of gradients in KAZE, is by definition more tolerant to small geometric deformations (such as those in the images under study) than a binary identifier based on pointwise comparisons, because it is integrated over areas rather than exact points, which favors this improved response.
+
+It is important to highlight that the KAZE detector is based on extrema of the normalized Hessian determinant in its nonlinear scale space, so in textures/structures it can produce quite a few valid extrema, even in outer regions. Thus, areas that in the ORB case appeared as a concentration zone due to the presence of repetitive textures, in KAZE tend to yield keypoints that are more spatially distributed. In the image, it can be observed how the keypoints identified with the KAZE algorithm are more spread across the scene, even leading some of them to form matches between figures.
+
+We also report the ratio-test matching results for the same pair. Fig.~\ref{fig:ratiotest-orb} shows ORB with ratio test, and Fig.~\ref{fig:ratiotest-kaze} shows KAZE with ratio test.
+
+\begin{table}[!t]
+\centering
+\caption{Measured runtime for detection/description and matching Cross-check.}
+\label{tab:timings-orb-kaze}
+\begin{tabular}{lcc}
+\hline
+Detector & Detect+Describe (s) & Matching (s) \\
+\hline
+ORB  & 0.011849542 & 0.001364103 \\
+KAZE & 0.195190992 & 0.003179951 \\
+\hline
+\end{tabular}
+\end{table}
+
+In terms of keypoint detection and description time, the result is consistent with the implemented algorithms. In the case of ORB, since it is based on FAST with simple comparisons and rBRIEF with binary operations, it is computationally cheaper and takes a much shorter time for detection and description. In contrast, KAZE, which constructs scale spaces by nonlinear diffusion, implies solving a diffusion equation at different levels, multiple iterations, and Hessian-type derivative operations; thus it is much heavier and therefore takes significantly more time to execute detection and description on the image. KAZE matching is also slower, mainly because ORB uses binary operations based on Hamming distance, whereas KAZE uses floating-point operations with $L_2$ distances, implying higher computational complexity, as is evident in Table~\ref{tab:timings-orb-kaze}.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/Features_Match_RatioTest_orb.png}
+  \caption{Ratio-test matching results using ORB.}
+  \label{fig:ratiotest-orb}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/Features_Match_RatioTest_kaze.png}
+  \caption{Ratio-test matching results using KAZE.}
+  \label{fig:ratiotest-kaze}
+\end{figure}
+
+\begin{table}[!t]
+\centering
+\caption{Measured runtime for ratio-test matching.}
+\label{tab:timings-ratiotest}
+\begin{tabular}{lcc}
+\hline
+Detector & Detect+Describe (s) & Matching (s) \\
+\hline
+ORB  & 0.019036635 & 0.003361369 \\
+KAZE & 0.181437621 & 0.001895746 \\
+\hline
+\end{tabular}
+\end{table}
+
+We also include the FLANN matching results for visual comparison. Fig.~\ref{fig:flann-orb} shows ORB with FLANN, and Fig.~\ref{fig:flann-kaze} shows KAZE with FLANN.
+
+\begin{table}[!t]
+\centering
+\caption{Measured runtime for FLANN matching.}
+\label{tab:timings-flann}
+\begin{tabular}{lcc}
+\hline
+Detector & Detect+Describe (s) & Matching (s) \\
+\hline
+ORB  & 0.018674926 & 0.002685916 \\
+KAZE & 0.205246737 & 0.015027942 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/Features_Match_FLANN_orb.png}
+  \caption{FLANN matching results using ORB.}
+  \label{fig:flann-orb}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/Features_Match_FLANN_kaze.png}
+  \caption{FLANN matching results using KAZE.}
+  \label{fig:flann-kaze}
+\end{figure}
+
+When analyzing the results, mainly the matching between the two images using ORB and cross-check matching, it is proposed to modify the way the match results are selected between the images, with the main objective of obtaining final values that are more reliable in terms of the quality of the identified matches. For this reason, the ratio test logic is employed to validate the relationship between the paired candidates. In this way, after the detection and description stages described previously, a modification is proposed in the matching algorithm: for each keypoint it identifies the two nearest neighbors and then filters those neighbors, keeping only those for which the best match is at most $70\%$ of the distance of the second-best match, mainly to avoid ambiguities.
+
+As shown in Figs.~\ref{fig:ratiotest-orb} and \ref{fig:ratiotest-kaze}, the results for ORB when implementing this modification in match selection become evident, since the trajectories of the vectors between pairs in the two images are more uniform than with the simple cross-checking implementation; however, since the implemented detection and description algorithm is the same, the observations regarding the effect of the viewpoint change on pairing quality remain evident, as does the difference with the KAZE results for the same images under the same pair-selection algorithm, given that KAZE can identify approximately three times more correspondences than ORB that satisfy the ratio-test criterion with a threshold of $0.7$.
+
+When analyzing the time taken by the algorithms in pairing, a striking result is found: the KAZE time decreases with respect to the cross-checking evaluation. This is explained because, in cross-checking, the algorithm must evaluate $L_2$ distances in both directions, whereas when cross-checking is set to false and only the two nearest neighbors are kept, the cost decreases because the $L_2$ computation is done in only one direction; moreover, the increase in execution time due to validating the threshold condition is smaller than the time required by the matching algorithm to perform the second mutual validation, which is why the total time decreases. In contrast, in the case of ORB, since the cost of validating in both directions is minimal because it is a binary operation, the additional computational cost of comparing the two nearest neighbors and applying the threshold causes the time spent by this algorithm in matching to be higher than in cross-checking.
+
+Finally, the implementation of a FLANN algorithm is proposed for checking, enabling fast nearest-neighbor search through an indexed data structure and an approximate $k$-NN search. The results in terms of pair identification between the images are very similar to the match-ratio case without FLANN; however, the execution times of both algorithms are lower due to the optimized search for the nearest neighbors, which can make it attractive when compared with the simple ratio test. It is important to highlight that Hamming-based cross-checking for ORB remains the fastest in execution, even with FLANN optimizations. It is also important to note that, in this case, the approximate relation of about three times more pairs satisfying the ratio test for KAZE than for ORB is maintained, mainly due to the effects already discussed of nonlinear diffusion and how it favors invariance under small geometric changes such as a small change of point of view.
+
+Although the computation of the distance in each one of the implemented algorithms has already been detailed in the introduction to their functioning, given the effects on execution time mainly in the matching stage, it is convenient to revisit this aspect in greater depth. As was already described, ORB is a binary descriptor that uses an rBRIEF-type descriptor where each component is the result of an intensity comparison, as shown in Eq.~(\ref{eq:orb_bit}):
+
+\begin{equation}
+\label{eq:orb_bit}
+b_i=\mathbf{1}\!\left[I(x_i)<I(y_i)\right]\in\{0,1\}.
+\end{equation}
+
+Then the complete descriptor is given by Eq.~(\ref{eq:orb_descriptor}):
+
+\begin{equation}
+\label{eq:orb_descriptor}
+\mathbf{b}=(b_1,\dots,b_n)\in\{0,1\}^n.
+\end{equation}
+
+Thus, the natural way to compare is to identify how many bits change between one descriptor and another, and this measure is precisely the Hamming distance, which is an operation that, as was evidenced computationally, is very efficient because it can be expressed via an XOR operation and a counting of ones. In contrast, in the case of the KAZE descriptor, it is a real vector of 64 components built from sums of derivatives; it is computed over a $4\times 4$ grid and concatenated, yielding a vector as in Eq.~(\ref{eq:kaze_descriptor_vector}), which is then normalized:
+
+\begin{equation}
+\label{eq:kaze_descriptor_vector}
+\mathbf{d}\in\mathbb{R}^{64}.
+\end{equation}
+
+Therefore, in its case the distance employed for comparison that makes the most sense is the $L_2$ distance. Here the components are real (floats) and represent integrated gradient magnitudes. For this type of descriptors, the natural notion of similarity is ``how close they are as vectors'' in a Euclidean space, as defined in Eq.~(\ref{eq:l2_distance}):
+
+\begin{equation}
+\label{eq:l2_distance}
+d_2(\mathbf{d},\mathbf{d}')=\|\mathbf{d}-\mathbf{d}'\|_2
+=\sqrt{\sum_{i=1}^{n}(d_i-d'_i)^2}.
+\end{equation}
