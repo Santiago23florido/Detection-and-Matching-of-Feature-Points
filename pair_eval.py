@@ -4,8 +4,12 @@ import cv2
 def eval_matches(kp1, kp2, matches, M, img2_shape, threshold=3.0):
     h2, w2 = img2_shape[:2]
     M = np.asarray(M, dtype=np.float64)
-    if M.shape != (2, 3):
-        raise ValueError("M must be 2x3 (affine matrix for warpAffine).")
+    if M.shape == (2, 3):
+        H = np.vstack([M, [0, 0, 1]])
+    elif M.shape == (3, 3):
+        H = M
+    else:
+        raise ValueError("M must be 2x3 (affine) or 3x3 (homography).")
 
     correct_mask = []
     errors = []
@@ -15,8 +19,11 @@ def eval_matches(kp1, kp2, matches, M, img2_shape, threshold=3.0):
         x1, y1 = kp1[m.queryIdx].pt
         x2, y2 = kp2[m.trainIdx].pt
 
-        xgt = M[0, 0] * x1 + M[0, 1] * y1 + M[0, 2]
-        ygt = M[1, 0] * x1 + M[1, 1] * y1 + M[1, 2]
+        p = H @ np.array([x1, y1, 1.0], dtype=np.float64)
+        if p[2] == 0:
+            continue
+        xgt = p[0] / p[2]
+        ygt = p[1] / p[2]
 
         if not (0 <= xgt < w2 and 0 <= ygt < h2):
             continue
@@ -66,6 +73,14 @@ def pair_eval(img1: np.ndarray, img2: np.ndarray, detector: int, M, threshold=3.
     kp2_all, desc2 = det2.detectAndCompute(gray2, None)
 
     if desc1 is None or desc2 is None or len(kp1_all) == 0 or len(kp2_all) == 0:
+        return {
+            "evaluated_matches": 0,
+            "correct_matches": 0,
+            "precision": 0.0,
+            "mean_error_px": float("nan"),
+            "median_error_px": float("nan"),
+        }
+    if desc1.shape[0] < 2 or desc2.shape[0] < 2:
         return {
             "evaluated_matches": 0,
             "correct_matches": 0,

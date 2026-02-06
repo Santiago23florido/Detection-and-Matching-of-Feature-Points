@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1770360154.54789 "/home/santiago/images/docs/rappport/rap.tex" "rap.pdf" "rap" 1770360154.9052 0
+["pdflatex"] 1770364522.19262 "/home/santiago/images/docs/rappport/rap.tex" "rap.pdf" "rap" 1770364522.87102 0
   "/etc/texmf/web2c/texmf.cnf" 1762418151.39241 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/home/santiago/images/docs/rappport/rap.tex" 1770356621.14239 5008 70e99907a82eb98b7d0467b2856b8f2a ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
@@ -100,9 +100,12 @@
   "imgs/descriptors/Features_Match_FLANN_orb.png" 1770355592.76517 666419 a3651a4d1ed0a043c64fe91aa14fdc1f ""
   "imgs/descriptors/Features_Match_RatioTest_kaze.png" 1770352304.79471 686644 39eb03885c46607cd34cc624c74e73f5 ""
   "imgs/descriptors/Features_Match_RatioTest_orb.png" 1770352296.17592 667322 7f80d534e3e49acb9f88f4016a1960d9 ""
-  "rap.aux" 1770360154.86682 4238 3fd3e2ed77be321e04e6dca4f5d226ce "pdflatex"
+  "imgs/descriptors/rotation_precision_orb_kaze.png" 1770364084.61516 67692 c1941c1dfb24ad9a72dcad3074be6410 ""
+  "imgs/descriptors/scale_precision_orb_kaze.png" 1770364115.03905 111225 478a8ea3f3cac0e6d52cbd47b8e27c91 ""
+  "imgs/descriptors/viewpoint_precision_orb_kaze.png" 1770364131.20418 86119 5e1c37837cc3088d4ff064763b0accd4 ""
+  "rap.aux" 1770364522.81428 4874 3339f4f2e21562aa6779f173a6882ebd "pdflatex"
   "rap.tex" 1770356621.14239 5008 70e99907a82eb98b7d0467b2856b8f2a ""
-  "sections/descriptors_pairing.tex" 1770360153.8077 29363 fa938889019c51772133493c53fbc23c ""
+  "sections/descriptors_pairing.tex" 1770364521.95468 33622 730f2552be5c1022de6ae367ad5ed719 ""
   (generated)
   "rap.aux"
   "rap.log"

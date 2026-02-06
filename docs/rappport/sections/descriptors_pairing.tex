@@ -354,3 +354,34 @@ d_2(\mathbf{d},\mathbf{d}')=\|\mathbf{d}-\mathbf{d}'\|_2
 It is proposed to evaluate the response of the descriptor and pairing algorithms by analyzing their performance under known geometric transformations applied to the images. For this, it is proposed to analyze the geometric transformations for which the methods are invariant, in order to make evident the pairing dynamics under modifications in rotation and scale. Additionally, it is also proposed to include a transformation that resembles a change of point of view in the image, in order to observe how the pairing precision behaves as the change becomes more significant. For this purpose, the definition of a 2D transformation matrix in OpenCV is used, and then, with that matrix and \texttt{warpAffine}, the transformation is applied to the image.
 
 On the side of the implemented algorithm for the evaluation, it is proposed to use the ORB and KAZE detectors for the identification of a set of keypoints in each image, and afterwards, with these, to apply the transformation matrix to the positions of the keypoints of the original image and use the already defined transformation matrix to map the expected position of those keypoints in the transformed image. This is then compared with the position of the nearest keypoint found with \texttt{ratioTest} and FLANN; the $L_2$ distance is measured between the expected position and the detected keypoint position, and a threshold value is proposed to identify the pairing as an error, delivering as a result of the estimation the percentage of correct pairings over the reviewed pairs.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/scale_precision_orb_kaze.png}
+  \caption{Precision as a function of scale for ORB and KAZE.}
+  \label{fig:scale-precision}
+\end{figure}
+
+To validate the functioning of the implemented descriptors, mainly in terms of their invariance with respect to the scale factor, and following the proposed methodology, it was proposed to analyze the behavior of pairing precision under scale variations from $\times 0.3$ to $\times 3.0$. It is observed that, under scale-only changes, the descriptor behaves as expected, being able to handle the effect of the geometric modification in feature extraction through the specific mechanisms of each algorithm; however, we note that when scale changes are below $50\%$ of the original figure or above $200\%$, the quality of the results and the pairing becomes less stable and less precise, as shown in Fig.~\ref{fig:scale-precision}.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/rotation_precision_orb_kaze.png}
+  \caption{Precision as a function of rotation for ORB and KAZE.}
+  \label{fig:rotation-precision}
+\end{figure}
+
+
+
+In accordance with the mathematical conception of the implemented descriptors, it is observed that when applying rotation changes to the second figure and performing pairing with the ORB and KAZE algorithms, the result is stable and additionally of high precision, as shown in Fig.~\ref{fig:rotation-precision}. This result was expected, mainly due to the inclusion of a rotation-angle sampling method in the discrete domain with rBRIEF in the case of ORB, and in the case of KAZE through the computation and inclusion of the dominant orientation in the image.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/descriptors/viewpoint_precision_orb_kaze.png}
+  \caption{Precision under viewpoint changes for ORB and KAZE (horizontal and vertical tilt).}
+  \label{fig:viewpoint-precision}
+\end{figure}
+
+Finally, it is proposed to evaluate the precision of the models under the modification for which, qualitatively, the largest difference in performance between the employed algorithms was observed; therefore, the implementation of variable points of view is proposed in order to evidence the capacity of the descriptors, especially the one based on nonlinear diffusion, to handle these geometric modifications for which it is not invariant. We evaluated descriptor matching robustness under perspective changes by generating synthetic viewpoint tilts via homographies. Two families of transforms were considered: a horizontal tilt (trapezoidal warping with a shorter top edge and longer bottom edge) and a vertical tilt (asymmetric compression/expansion of the left edge relative to the right). For each tilt magnitude, the original image was warped using the corresponding homography, and matching precision was computed for ORB and KAZE. Precision was measured by projecting keypoints from the original image with the same homography and counting matches whose reprojection error fell below a fixed pixel threshold. The resulting curves show how matching accuracy degrades as the viewpoint distortion increases, enabling a direct comparison of ORB and KAZE under perspective changes.
+
+As evidenced in the results in Fig.~\ref{fig:viewpoint-precision}, although the dynamics are similar in terms of model precision---in both cases, as the tilt magnitude in pixels in the image increases from the simulated edge and point of view, precision decreases---the phenomenon observed for these geometric modifications and previously evidenced qualitatively is maintained: given the nature of the KAZE descriptor, the number of paired keypoints identified is, on average, noticeably higher than the number of keypoints obtained under ORB. Taking into account that, although both models are capable of handling to some extent the geometric change implied by the viewpoint change, KAZE adapts better to it due to the way diffusion is performed and how the descriptor is constructed; this does not necessarily appear as a different dynamic in terms of precision as tilt increases, but it does appear as a higher average number of pairs found in the image.
