@@ -1,2 +1,130 @@
 \section{Descriptors and pairing}
-In computer vision, a descriptor is understood as a numerical representation, generally vectorial, that is used for the summarized representation in features of the neighborhood of an entity in an image, which is specifically conceived in order to be able to perform matching or comparison operations of those same entities with other images even when there are events such as changes of scale, rotations, illuminations, or noise that can interfere with the normal matching process; a descriptor can then be understood, therefore, as the result of mapping into a vector a local neighborhood in an image, guaranteeing robustness understood as stability under image changes, viewpoints, geometric distortion and occlusions, the discrimination of different objects given the vector, and efficiency, in such a way that it will be easy to compute and compact in memory, that is, it is a feature vector corresponding to the key points.
+In computer vision, a descriptor is understood as a numerical representation, generally vectorial, that is used for the summarized representation in features of the neighborhood of an entity in an image, which is specifically conceived in order to be able to perform matching or comparison operations of those same entities with other images even when there are events such as changes of scale, rotations, illuminations, or noise that can interfere with the normal matching process \cite{opencv_feature_description}; a descriptor can then be understood, therefore, as the result of mapping into a vector a local neighborhood in an image, guaranteeing robustness understood as stability under image changes, viewpoints, geometric distortion and occlusions, the discrimination of different objects given the vector, and efficiency, in such a way that it will be easy to compute and compact in memory, that is, it is a feature vector corresponding to the key points.
+
+On the other hand, a detector is an algorithm whose function is to find in the image a set of points, or keypoints, that are repeatable and well localizable \cite{opencv_feature_detection}; generally, detectors operate from the definition of a measure $r(x,y)$ or $R(x,y,\omega)$ that is used for the detection of corners, blobs, or stable regions in the domain mainly of local multi-scale characterization, seeking local maxima or minima of these functions and filtering unstable candidates, focusing on repeatability, localization precision of these keypoints in the figure, and stability in detection \cite{tuytelaars_mikolajczyk_features}.
+\subsection{Oriented FAST and Rotated BRIEF}
+ORB is a local feature method that outputs keypoints and a binary descriptor; it can be conceptually understood as a pipeline that combines a FAST-family detector and a BRIEF-family descriptor. Considering that since FAST is not scale-invariant, ORB detects FAST keypoints on multiple rescaled versions of the image, on an image pyramid \cite{rublee_orb}.
+
+The FAST method works by considering a circle of generally 16 pixels in the neighborhood of a candidate pixel $p$ and classifies the pixel $p$ as a corner in the case where there exists a group of pixels on that circle (the neighborhood of $p$) that have sufficient intensity in comparison with $p$ using a threshold value $t$, as defined in Eq. \eqref{eq:fast-label}:
+
+\begin{equation}
+\label{eq:fast-label}
+S_{p\rightarrow x}=
+\begin{cases}
+d, & I_{p\rightarrow x}\le I_p - t \\
+s, & I_p - t < I_{p\rightarrow x} < I_p + t \\
+b, & I_p + t \le I_{p\rightarrow x}
+\end{cases}
+\end{equation}
+
+where $S_{p\rightarrow x}$ is the ``label'' of pixel $x$ on the circle.
+
+\begin{itemize}
+\item $d$ (\emph{dark}): the circle pixel is at least $t$ darker than the center.
+\item $b$ (\emph{bright}): the circle pixel is at least $t$ brighter than the center.
+\item $s$ (\emph{similar}): it is inside the band $(I_p - t,\ I_p + t)$, that is, it does not differ enough.
+\end{itemize}
+
+FAST \emph{declares} that $p$ is a corner if there exists a set of contiguous pixels on the circle such that all of them are \emph{bright} or all of them are \emph{dark}. It is a very fast method because it can be implemented via process optimizations such as the use of a learned decision tree to select which positions to evaluate first \cite{rosten_drummond_fast}.
+
+By itself, the FAST segment test constitutes only a binary classification; however, FAST introduces a score value so that non-maximum suppression can be performed and only local maxima are kept \cite{rosten_drummond_fast}. One (efficient) definition given is in Eq. \eqref{eq:fast-score}:
+\begin{equation}
+\label{eq:fast-score}
+V=\max\left(
+\sum_{x\in S_{\text{bright}}}\left(\left|I_{p\rightarrow x}-I_p\right|-t\right),\;
+\sum_{x\in S_{\text{dark}}}\left(\left|I_p-I_{p\rightarrow x}\right|-t\right)
+\right).
+\end{equation}
+
+In ORB, the FAST threshold is set sufficiently low so as to obtain more than $N$ candidates that can then be evaluated using a Harris corner measure, and to keep the top $N$ values \cite{rublee_orb}.
+
+A standard Harris measure uses the second-moment (structure tensor) matrix $H$ and response in Eq. \eqref{eq:harris-response}:
+\begin{equation}
+\label{eq:harris-response}
+C = |H| - k\big(\mathrm{trace}(H)\big)^2.
+\end{equation}
+
+The selection between a score type, more stable with Harris, or faster but slightly less stable with FAST\_SCORE, is made available by OpenCV \cite{opencv_orb_class}.
+
+Given the nature of FAST, it does not naturally produce an orientation; this is why ORB needs to add an orientation step, and for that it implements the centroid idea. ORB improves stability by computing moments only within a circular region of radius $r$, with raw moments defined in Eq. \eqref{eq:orb-moments}.
+
+\begin{equation}
+\label{eq:orb-moments}
+m_{pq}=\sum_{x,y} x^p y^q I(x,y)
+\end{equation}
+
+\begin{equation}
+\label{eq:orb-centroid}
+C=\left(\frac{m_{10}}{m_{00}},\; \frac{m_{01}}{m_{00}}\right)
+\end{equation}
+
+Then the orientation is the angle of the vector from patch center $O$ to centroid, as in Eq. \eqref{eq:orb-theta}:
+\begin{equation}
+\label{eq:orb-theta}
+\theta = \mathrm{atan2}(m_{01}, m_{10})
+\end{equation}
+
+On the other hand, BRIEF is responsible for representing a patch $p$ by means of a bitstring that is produced from simple intensity comparisons, as shown in Eq.~(\ref{eq:tau}).
+
+\begin{equation}
+\label{eq:tau}
+\tau(p;x,y)=
+\begin{cases}
+1, & p(x)<p(y)\\
+0, & p(x)\ge p(y)
+\end{cases}
+\end{equation}
+
+An $n$-bit descriptor can then be built as in Eq.~(\ref{eq:fn}).
+
+\begin{equation}
+\label{eq:fn}
+f_n(p)=\sum_{i=1}^{n} 2^{i-1}\,\tau(p;x_i,y_i)
+\end{equation}
+
+It focuses on binary strings given the inherent ease of comparing them using Hamming distance rather than $L_2$ distances in vectors \cite{rublee_orb}. Plain BRIEF is very sensitive to rotation; in response to this it suggests the concept of steered BRIEF, which rotates the sampling pattern as a function of a discretized angle $\theta$. Let the test locations be encoded in a matrix as in Eq.~(\ref{eq:S}).
+
+\begin{equation}
+\label{eq:S}
+S=
+\begin{pmatrix}
+x_1 & \cdots & x_n\\
+y_1 & \cdots & y_n
+\end{pmatrix}
+\end{equation}
+
+These locations are rotated according to Eq.~(\ref{eq:Stheta}).
+
+\begin{equation}
+\label{eq:Stheta}
+S_\theta = R_\theta S
+\end{equation}
+
+Finally, the descriptor is computed using the rotated test coordinates, as expressed in Eq.~(\ref{eq:gn}).
+
+\begin{equation}
+\label{eq:gn}
+g_n(p,\theta) := f_n(p)\big|_{(x_i,y_i)\in S_\theta}
+\end{equation}
+
+ORB then analyzes a subtle but critical issue: when you orient BRIEF consistently, the bit statistics change---the means move away from $0.5$ and the tests become less discriminative and more correlated. 
+
+The final descriptor used in ORB is an rBRIEF constructed by generating tests with a mean close to $0.5$ and high variance, which also preserve low correlation with the tests already selected. The procedure can be summarized as follows: (i) enumerate all pairs of subwindows (then remove overlapping tests), yielding candidate tests; (ii) run each test over all training patches; (iii) sort tests by the distance of their mean from $0.5$ (best first); and (iv) apply a greedy selection, keeping a test only if its absolute correlation with all selected tests is below a threshold. This produces a final descriptor that remains binary and fast (Hamming), but with bits that are more informative and less redundant than a naive ``steered BRIEF''.
+
+For binary descriptors $d_1,d_2\in\{0,1\}^{256}$, matching uses the Hamming distance, as defined in Eq.~(\ref{eq:hamming_def}):
+
+\begin{equation}
+\label{eq:hamming_def}
+\mathrm{Ham}(d_1,d_2)=\sum_{i=1}^{256}\mathbf{1}\!\left[d_{1,i}\neq d_{2,i}\right].
+\end{equation}
+
+This can be computed efficiently as in Eq.~(\ref{eq:hamming_popcount}):
+
+\begin{equation}
+\label{eq:hamming_popcount}
+\mathrm{Ham}(d_1,d_2)=\mathrm{popcount}(d_1\oplus d_2).
+\end{equation}
+
+BRIEF emphasizes this efficiency, and ORB notes SSE popcount optimizations in their matching implementation \cite{calonder_brief}.
+
+Finally, in ORB an image pyramid of scales is constructed and, for each scale, FAST corners are detected using a test threshold and are assigned a score using FAST\_SCORE or Harris; the strongest features are retained, generally using Harris; the orientation $\theta$ is computed via the intensity centroid moments; and finally a descriptor is computed using a smoothed patch, a rotated sampling pattern, and an rBRIEF learned test set, in order to be able to perform descriptor matching using Hamming distance computed via popcount. It is worth highlighting that the way ORB is constructed allows it to handle in-plane rotation, which is addressed through the centroid-based orientation and the steered sampling pattern. Additionally, it can handle image scale by implementing pyramidal detection; however, it remains not fully affine-invariant to viewpoint changes, because projective changes can still break patch appearance.
