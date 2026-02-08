@@ -82,15 +82,23 @@ plt.subplot(132)
 plt.imshow(Theta,cmap = 'gray')
 plt.title('Fonction de Harris')
 
-se_croix = np.uint8([[1, 0, 0, 0, 1],
-[0, 1, 0, 1, 0],[0, 0, 1, 0, 0],
-[0, 1, 0, 1, 0],[1, 0, 0, 0, 1]])
+# Structure for the kernel 5*5 for dilation, to get a better visualization of the points
+se_croix = np.uint8([
+    [1, 0, 0, 0, 1],
+    [0, 1, 0, 1, 0],
+    [0, 0, 1, 0, 0],
+    [0, 1, 0, 1, 0],
+    [1, 0, 0, 0, 1]
+])
+
 Theta_ml_dil = cv2.dilate(Theta_maxloc,se_croix)
+
 #Relecture image pour affichage couleur
 Img_pts=cv2.imread('../Image_Pairs/Graffiti0.png',cv2.IMREAD_COLOR)
 (h,w,c) = Img_pts.shape
 print("Dimension de l'image :",h,"lignes x",w,"colonnes x",c,"canaux")
 print("Type de l'image :",Img_pts.dtype)
+
 #On affiche les points (croix) en rouge
 Img_pts[Theta_ml_dil > 0] = [255,0,0]
 plt.subplot(133)
