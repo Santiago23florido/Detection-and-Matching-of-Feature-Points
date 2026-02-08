@@ -1,6 +1,10 @@
 \documentclass[conference]{IEEEtran}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{url}
 
 \begin{document}
 
@@ -30,6 +34,7 @@ Ce projet implémente en C++ un système complet pour le jeu Hex, conçu princip
 Hex game, C++, Object-Oriented Programming, Negamax, Transposition Table, TorchScript, SFML.
 \end{IEEEkeywords}
 
+\input{sections/descriptors_pairing.tex}
 
 \section{Détecteurs}
 
@@ -57,5 +62,40 @@ Si autour du pixel il y a un changement fort dans une seule direction, on est pl
 les changements forts sont dans deux
 directions, on parle d'un coin. Ainsi, $Theta$, la réponse de Harris, est définie pixel par pixel : plus 
 $Theta$ est grande, plus le pixel est un \emph{coin}.
+
+
+\begin{thebibliography}{00}
+    
+\bibitem{opencv_feature_description}
+A. Huam\'an, ``Feature Description,'' \emph{OpenCV Documentation} (OpenCV 4.14.0-pre), accessed Feb. 6, 2026. [Online]. Available: \url{https://docs.opencv.org/4.x/d5/dde/tutorial_feature_description.html}
+
+\bibitem{opencv_feature_detection}
+A. Huam\'an, ``Feature Detection,'' \emph{OpenCV Documentation} (OpenCV 4.14.0-pre), accessed Feb. 6, 2026. [Online]. Available: \url{https://docs.opencv.org/4.x/d7/d66/tutorial_feature_detection.html}
+
+\bibitem{tuytelaars_mikolajczyk_features}
+T. Tuytelaars and K. Mikolajczyk, ``Local Invariant Feature Detectors: A Survey,'' \emph{Foundations and Trends in Computer Graphics and Vision}, vol. 3, no. 3, pp. 177--280, 2007, accessed Feb. 6, 2026. [Online]. Available: \url{https://lvelho.impa.br/ip08/reading/features.pdf}
+
+\bibitem{rublee_orb}
+E. Rublee, V. Rabaud, K. Konolige, and G. Bradski, ``ORB: an efficient alternative to SIFT or SURF,'' in \emph{Proc. IEEE International Conference on Computer Vision (ICCV)}, Nov. 2011, doi: 10.1109/ICCV.2011.6126544, accessed Feb. 6, 2026. [Online]. Available: \url{https://sites.cc.gatech.edu/classes/AY2024/cs4475_summer/images/ORB_an_efficient_alternative_to_SIFT_or_SURF.pdf}
+
+\bibitem{rosten_drummond_fast}
+E. Rosten and T. Drummond, ``Machine learning for high-speed corner detection,'' in \emph{Computer Vision -- ECCV 2006} (Lecture Notes in Computer Science), vol. 3951, pp. 430--443, 2006, accessed Feb. 6, 2026. [Online]. Available: \url{https://www.edwardrosten.com/work/rosten_2006_machine.pdf}
+
+\bibitem{opencv_orb_class}
+OpenCV, ``cv::ORB Class Reference,'' \emph{OpenCV Documentation} (OpenCV 3.4), accessed Feb. 6, 2026. [Online]. Available: \url{https://docs.opencv.org/3.4/db/d95/classcv_1_1ORB.html}
+
+\bibitem{calonder_brief}
+M. Calonder, V. Lepetit, C. Strecha, and P. Fua, ``BRIEF: Binary Robust Independent Elementary Features,'' in \emph{Proc. European Conference on Computer Vision (ECCV)}, 2010, accessed Feb. 6, 2026. [Online]. Available: \url{https://www.cs.ubc.ca/~lowe/525/papers/calonder_eccv10.pdf}
+
+\bibitem{alcantarilla_kaze}
+P. F. Alcantarilla, A. Bartoli, and A. J. Davison, ``KAZE Features,'' in \emph{Proc. European Conference on Computer Vision (ECCV)}, 2012, accessed Feb. 6, 2026. [Online]. Available: \url{https://www.doc.ic.ac.uk/~ajd/Publications/alcantarilla_etal_eccv2012.pdf}
+
+\bibitem{perona_malik_1990}
+P. Perona and J. Malik, ``Scale-space and edge detection using anisotropic diffusion,'' \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence}, vol. 12, no. 7, pp. 629--639, 1990, accessed Feb. 6, 2026. [Online]. Available: https://www.sci.utah.edu/~gerig/CS7960-S2010/materials/Perona-Malik/PeronaMalik-PAMI-1990.pdf
+
+\bibitem{bay_surf_2008}
+H. Bay, A. Ess, T. Tuytelaars, and L. Van Gool, ``SURF: Speeded Up Robust Features,'' \emph{Computer Vision and Image Understanding}, vol. 110, no. 3, pp. 346--359, 2008, accessed Feb. 6, 2026. [Online]. Available: https://www.cs.jhu.edu/~misha/ReadingSeminar/Papers/Bay08.pdf
+
+\end{thebibliography}
 
 \end{document}
