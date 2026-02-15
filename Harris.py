@@ -35,12 +35,56 @@ Theta = cv2.copyMakeBorder(img,0,0,0,0,cv2.BORDER_REPLICATE)
 # TODO Mettre ici le calcul de la fonction d'intérêt de Harris
 
     #   Calcul des gradients par différences finies
+sigma = 1.0
+img_lisse = cv2.GaussianBlur(
+    img, (0, 0), sigmaX=sigma, sigmaY=sigma, 
+    borderType=cv2.BORDER_REPLICATE
+)
+
+dx = np.array(
+    [[-0.5, 0.0, 0.5]], dtype=np.float64
+)                                                   # Horizontal kernel for x-gradient (Convolution mask)
+dy = dx.T                                           # Transpose to get the vertical kernel for y-gradient
+Ix = cv2.filter2D(
+    img_lisse, cv2.CV_64F, dx, 
+    borderType=cv2.BORDER_REPLICATE
+)                                                   # Aproximation for Gradient in x direction. Weighted sum in x
+Iy = cv2.filter2D(
+    img_lisse, cv2.CV_64F, dy, 
+    borderType=cv2.BORDER_REPLICATE
+)                                                   # Aproximation for Gradient in y direction
+
 
     #   Produits des gradients
+Ix2 = Ix * Ix
+Iy2 = Iy * Iy
+Ixy = Ix * Iy
 
     #   Somme dans une fenêtre (filtre moyenneur)
+taille_fenetre = 5
+w_moy = np.ones(
+    (taille_fenetre, taille_fenetre), 
+    dtype=np.float64
+) / (taille_fenetre * taille_fenetre)               # Averaginf Kernel filter. Normalized by the number of pixels in window
+
+Sxx = cv2.filter2D(
+    Ix2, cv2.CV_64F, w_moy, 
+    borderType=cv2.BORDER_REPLICATE
+)
+Syy = cv2.filter2D(
+    Iy2, cv2.CV_64F, w_moy, 
+    borderType=cv2.BORDER_REPLICATE
+)
+Sxy = cv2.filter2D(
+    Ixy, cv2.CV_64F, w_moy, 
+    borderType=cv2.BORDER_REPLICATE
+)
 
     #   Calcul de la fonction de Harris, theta
+k = 0.04
+detM = Sxx * Syy - (Sxy * Sxy)
+traceM = Sxx + Syy
+Theta = detM - k * (traceM * traceM)
 
 
 #----------------------------------------------------------

@@ -1,5 +1,21 @@
 \section{Détecteurs}
 
+Dans le contexte de l'analyse d'images et de vidéos, il est souvent nécessaire
+de détecter des points d'intérêt, par exemple des bords, des coins, etc.
+C'est important pour des tâches d'appariement :
+comparer les descripteurs de deux images et obtenir des correspondances,
+estimer des transformations d'images (alignement),
+faire du suivi dans des vidéos à partir de ces points d'intérêt,
+et de l'odométrie visuelle pour estimer le mouvement de la caméra.
+
+\subsection{Fonction d'intérêt d'Harris}
+
+C'est ici qu'intervient la fonction (ou le détecteur) de Harris,
+qui est idéal quand la rapidité et la stabilité sont nécessaires.
+Cependant, lors de forts changements d'échelle, par exemple quand
+un objet apparaît beaucoup plus grand ou plus petit
+entre différents \emph{frames}, le détecteur de Harris est moins efficace.
+
 La fonction d'intérêt de Harris se base sur le fait d'assigner une valeur à chaque pixel. Cette valeur mesure
 à quel point ce pixel est une \emph{intersection}, c'est-à-dire un \emph{coin}.
 
@@ -20,5 +36,99 @@ Ce que fait Harris, c'est utiliser les gradients $I_x$ et $I_y$ pour savoir à q
  selon $x$ et selon $y$.
 Si autour du pixel il y a un changement fort dans une seule direction, on est plutôt sur un bord ; mais si 
 les changements forts sont dans deux
-directions, on parle d'un coin. Ainsi, $Theta$, la réponse de Harris, est définie pixel par pixel : plus 
-$Theta$ est grande, plus le pixel est un \emph{coin}.
+directions, on parle d'un coin. Ainsi, $\Theta$, la réponse de Harris, est définie pixel par pixel : plus
+$\Theta$ est grande, plus le pixel est un \emph{coin}.
+
+Dans le détecteur de Harris, la fonction d'intérêt se définit comme :
+$$
+\Theta = R = \det(M) - k\,(\operatorname{trace}(M))^2
+$$
+
+Où $k$ est une valeur empirique de pénalisation : plus elle est grande, plus le critère est strict,
+donc moins de coins sont détectés. $M$ est la matrice de structure obtenue à partir des gradients
+$I_{x}$ et $I_{y}$, calculés après un lissage gaussien de l'image, avec le paramètre $\sigma$ qui contrôle
+le niveau de lissage (réduction du bruit et des détails fins). La matrice $M$ se définit par :
+
+$$
+M(x,y)=
+$$
+
+$$
+=\sum_{(u,v)\in W} w(u,v)
+\begin{pmatrix}
+I_x(u,v)^2 & I_x(u,v)I_y(u,v)\\
+I_x(u,v)I_y(u,v) & I_y(u,v)^2
+\end{pmatrix}
+$$
+
+Où $w(u,v)$ est une fonction de poids (pondération) qui donne plus d'importance aux pixels proches du centre
+de la fenêtre $W$. Ainsi, la somme se fait sur une fenêtre autour du pixel analysé.
+
+\begin{itemize}
+  \item $I_x^2$ mesure à quel point l'image change dans la direction horizontale.
+  \item $I_y^2$ mesure à quel point l'image change dans la direction verticale.
+  \item $I_x I_y$ mesure la corrélation entre ces deux variations.
+\end{itemize}
+
+Et concernant les valeurs propres de $M$ : si les deux sont grandes, alors $R$ est grand et le pixel est un
+\emph{coin}. Si l'une est grande et l'autre petite, alors $R$ devient négatif et le pixel correspond à un
+\emph{bord}. Si les deux sont petites, alors $R$ est petit et le pixel est une zone plane.
+
+Enfin, le déterminant de $M$ correspond au produit des valeurs propres, tandis que la trace correspond à leur
+somme. Mais la trace ne distingue pas bien les bords des coins, c'est pour cela qu'on la pénalise (avec le
+terme en $k$). La trace mesure surtout le changement global, alors que le déterminant met mieux en évidence
+un vrai coin.
+
+Par ailleurs, cette fonction d'intérêt est calculée à une seule échelle : on utilise un seul niveau de
+lissage et une seule taille de fenêtre pour calculer $M$.
+
+\subsection{Dilatation Morphologique}
+
+Dans le traitement d'images, on cherche souvent à obtenir une valeur
+représentative d'un voisinage.
+Dans le cas de la dilatation morphologique, cette valeur correspond,
+pour chaque pixel, au maximum dans ce voisinage.
+Ce voisinage est défini par un élément structurant,
+par exemple une fenêtre $3 \times 3$.
+
+Dans le cas de Harris, cette dilatation morphologique est utilisée pour
+détecter les maxima locaux puis faire la suppression des non-maxima.
+Autrement dit, l'objectif est de garder les pics (les coins) les plus forts.
+
+Dans le code de \texttt{Harris.py}, dans la section commentée
+\texttt{"2. Calcul des maxima locaux et seuillage + temporisation"},
+la variable \texttt{se} définit la fenêtre/le voisinage comme une matrice
+de 1 de taille \texttt{d\_maxloc}, avec \texttt{d\_maxloc = 3} :
+
+\begin{verbatim}
+d_maxloc = 3
+se = np.ones(
+    (d_maxloc, d_maxloc), np.uint8
+)
+\end{verbatim}
+
+Ensuite, l'instruction suivante fait que chaque pixel prend la valeur
+la plus grande de sa fenêtre :
+
+\begin{verbatim}
+Theta_dil = cv2.dilate(Theta, se)
+\end{verbatim}
+
+Après, avec l'instruction suivante, on réalise une comparaison pixel
+par pixel :
+
+\begin{verbatim}
+Theta_maxloc[Theta < Theta_dil] = 0.0
+\end{verbatim}
+
+Si la valeur originale est différente de la valeur dilatée, alors ce pixel
+n'était pas un maximum local, donc sa valeur est supprimée (mise à zéro).
+Dans le cas contraire, la valeur est conservée car c'est bien un maximum local.
+
+Enfin, on applique un seuil relatif pour éliminer les maxima trop faibles :
+
+\begin{verbatim}
+Theta_maxloc[
+    Theta < seuil_relatif * Theta.max()
+] = 0.0
+\end{verbatim}
