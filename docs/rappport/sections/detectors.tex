@@ -275,3 +275,63 @@ mais peut éliminer des coins faibles utiles pour certaines scènes.
 Pour ce jeu d'images, la configuration de base
 (\texttt{SUM\_WINDOW\_SIZE} = 5, \texttt{HARRIS\_K} = 0.04,
 voisinage NMS = 3) reste un compromis raisonnable.
+
+\subsection{Calcul de Harris sur Plusieurs Échelles}
+
+Dans l'implémentation actuelle de \texttt{Harris.py}, le détecteur est
+mono-échelle : on utilise un lissage gaussien fixe
+(\texttt{sigma = 1.0}) ainsi qu'une fenêtre de sommation fixe pour construire
+la matrice de structure.
+Cette approche fonctionne bien pour une échelle donnée, mais elle perd en
+robustesse lorsque la taille apparente des objets varie entre les images.
+
+\textbf{Remarque.} Le paramètre \(\sigma\) représente le niveau de lissage
+gaussien : plus \(\sigma\) est grand, plus le lissage est fort, et plus les
+détails fins de l'image sont atténués (voire effacés).
+
+Pour réaliser le calcul de Harris sur plusieurs échelles, on travaille dans
+l'espace d'échelle \((x,y,\sigma)\) :
+\begin{enumerate}
+    \item Définir un ensemble d'échelles \(\sigma_1,\sigma_2,\dots,\sigma_n\)
+    (ou construire une pyramide gaussienne).
+    \item Pour chaque \(\sigma_i\), calculer \(I_x\), \(I_y\), la matrice
+    \(M_{\sigma_i}\), puis la réponse de Harris \(R_{\sigma_i}\).
+    \item Normaliser les réponses entre échelles pour les rendre comparables.
+    \item Appliquer une suppression de non-maxima en 2D à chaque échelle,
+    puis l'étendre en 3D :
+    un point est conservé s'il est maximal dans son voisinage spatial et aussi
+    par rapport à \(\sigma_{i-1}\), \(\sigma_i\) et \(\sigma_{i+1}\).
+    \item Appliquer un seuil, puis reprojeter les points dans l'image originale
+    en conservant leur échelle caractéristique.
+\end{enumerate}
+
+Les principaux compromis sont les suivants :
+\begin{itemize}
+    \item Plus d'échelles : meilleure robustesse aux changements de taille, mais
+    coût de calcul plus élevé.
+    \item Petites échelles : plus de détails et potentiellement plus de coins,
+    mais aussi davantage de sensibilité au bruit.
+    \item Grandes échelles : détection plus stable, mais risque de perdre des
+    coins fins ou faibles.
+\end{itemize}
+
+Finalement, le lien avec la distance minimale \(r\) entre points d'intérêt est le suivant.
+Pour garantir que deux points détectés restent séparés d'au moins \(r\) pixels,
+on peut utiliser une suppression de non-maxima avec un rayon \(r\), ou une
+ANMS (\emph{Adaptive Non-Maximum Suppression}).
+Cela réduit la redondance spatiale et améliore la répartition des coins
+dans l'image.
+
+Au lieu d'utiliser un rayon fixe identique partout, l'ANMS attribue à chaque
+coin candidat un rayon adaptatif \(r_i\), défini comme la distance au coin plus
+fort le plus proche.
+C'est-à-dire que
+\begin{itemize}
+    \item un coin très fort, isolé, obtient un grand rayon \(r_i\) ;
+    \item un coin faible situé près d'un coin plus fort obtient un petit rayon.
+\end{itemize}
+Ensuite, on trie les candidats selon \(r_i\) et on conserve les points avec les
+plus grands rayons.
+On garde ainsi des coins à la fois fiables (bonne réponse Harris) et bien
+répartis spatialement, ce qui est souvent préférable à une sélection locale
+très dense dans une petite zone de l'image.
