@@ -336,3 +336,195 @@ largest radii are kept.
 This way, we keep corners that are both reliable (good Harris response) and well
 distributed spatially, which is often preferable to a very dense
 local selection in a small region of the image.
+
+\section{Alternative Detectors: ORB and KAZE}
+
+Within a computer vision pipeline, a detector seeks interest points that satisfy three main properties.
+
+\begin{itemize}
+    \item \textbf{Repeatability}: interest points should appear again and remain meaningful even if the image 
+    undergoes transformations such as rotation, scale changes, or mild illumination variations.
+    \item \textbf{Good localization}: the $(x,y)$ position of the points should be stable and estimable with 
+    precision.
+    \item \textbf{Informativeness}: points should be associated with corners, edges, or regions with local structure.
+\end{itemize}
+
+From this, a typical pipeline consists of converting the image to grayscale (or working per color channel), 
+detecting interest points with algorithms such as Harris, ORB, or KAZE, associating descriptors to each interest 
+point (a vector that summarizes the local neighborhood), matching descriptors (e.g., with a nearest-neighbor 
+approach), filtering incorrect or undesired matches, and using the remaining correspondences for the target task 
+(pose estimation, tracking, etc.).
+
+ORB and KAZE are presented as two alternatives; their differences mainly come from robustness under image changes, 
+descriptor discriminability, and computational cost. Since both include a detector and a descriptor, they are often 
+referred to as \emph{feature methods}.
+
+\subsection{ORB}
+
+ORB stands for \emph{Oriented FAST and Rotated BRIEF} and is a good choice when we need speed (especially for 
+real-time), a compact binary descriptor that is fast to compare, and reasonable robustness to in-plane rotations.
+
+These advantages come from using the Hamming distance for comparisons (an XOR operation followed by a bit count). 
+This is cheaper than comparing floating-point vectors with an $L_2$ norm (As in Kaze).
+
+Typical applications include tracking, SLAM (Simultaneous Localization and Mapping), approximate matching, 
+and embedded scenarios.
+
+Some disadvantages are that, because it is very fast and relies on binary comparisons, it may be less discriminative 
+and can become ambiguous in repetitive patterns, and it is less robust under strong viewpoint changes. In addition, 
+BRIEF-style comparisons can be sensitive to blur and noise, and scale invariance depends on how the image pyramid is 
+configured.
+
+\subsubsection{ORB Principle - Algorithm}
+
+The ORB detector performs the following steps:
+
+\begin{enumerate}
+    \item Image pyramid (scale):
+    \begin{itemize}
+        \item Build an image pyramid with multiple scale levels.
+        \item Detect corners at each level.
+    \end{itemize}
+
+    \item FAST detection:
+    \begin{itemize}
+        \item For a candidate pixel $p$, consider a circle of 16 pixels around it.
+        \item With a threshold $t$, $p$ is declared a ``corner'' if there exists a contiguous arc of pixels 
+        significantly brighter or significantly darker than $p$. A simplified view is:
+        $$
+        \text{bright: } I(x) \ge I(p) + t,
+        \qquad
+        \text{dark: } I(x) \le I(p) - t.
+        $$
+        Then, $p$ is a corner if a sufficiently long contiguous set of ``bright'' pixels (or of ``dark'' pixels) 
+        exists on the circle.
+    \end{itemize}
+
+    \item Select the best $N$ points:
+    \begin{itemize}
+        \item FAST yields many candidates.
+        \item ORB keeps the best ones according to a score (Harris or FAST score), up to \texttt{nfeatures}.
+    \end{itemize}
+
+    \item Assign orientation:
+    \begin{itemize}
+        \item FAST does not provide an orientation; ORB estimates an angle using the intensity centroid of the patch.
+        \item With raw moments $m_{10}$ and $m_{01}$, the orientation is:
+        $$
+        m_{10} = \sum x\,I(x,y),
+        \qquad
+        m_{01} = \sum y\,I(x,y),
+        $$
+        $$
+        \theta = \operatorname{atan2}(m_{01}, m_{10}).
+        $$
+    \end{itemize}
+
+    \item Rotated BRIEF descriptor (rBRIEF):
+    \begin{itemize}
+        \item BRIEF builds bits by comparing the intensity of pairs of points in the patch: 
+        $\tau(p;x,y)=1$ if $p(x) < p(y)$, else $0$.
+        \item To be robust to rotation, ORB rotates the sampling pattern according to $\theta$ 
+        (``steered BRIEF'').
+        \item The result is a binary descriptor (e.g., 256 bits).
+    \end{itemize}
+
+    \item Efficient matching:
+    \begin{itemize}
+        \item Since the descriptor is binary, it is compared with the Hamming distance (number of differing bits), which is computationally efficient.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{KAZE}
+
+KAZE is a feature method that is generally more robust under strong scale changes, moderate geometric 
+deformations, and texture/noise variations where preserving edges is beneficial.
+
+KAZE builds a nonlinear scale space (edge-preserving diffusion) and detects Hessian-type points 
+(blobs / stable regions).
+
+A scale space can be understood as representing the image at different levels of detail (e.g., as
+ when applying Gaussian filtering). ``Nonlinear'' here means that the smoothing is not uniform: it depends on the 
+ local image content, which helps preserve edges.
+
+Hessian-type points correspond to local extrema of a second-order response; they tend to highlight 
+\emph{blobs}, i.e., compact regions whose intensity changes with a consistent curvature in two directions. 
+Intuitively, a blob looks like a local ``bump'' rather than a long edge, and this can be more stable under
+ moderate viewpoint changes.
+
+Another advantage is that the descriptor (M-SURF in OpenCV's KAZE) is a floating-point vector built 
+from sums of derivatives and typically compared with an $L_2$ distance; it is often more discriminative 
+than a simple binary descriptor such as ORB's, at the cost of higher computational effort.
+
+\subsubsection{KAZE Principle - Algorithm}
+
+The KAZE detector performs the following steps:
+
+\begin{enumerate}
+    \item Build the nonlinear scale space (diffusion):
+    \begin{itemize}
+        \item Generate a family of smoothed images at different scales, using a diffusion process that depends on local image content (edge-preserving).
+    \end{itemize}
+
+    \item Compute a Hessian-type response at each scale:
+    \begin{itemize}
+        \item At each scale level, compute second-order derivatives and evaluate a response such as a (normalized) Hessian determinant:
+        $$
+        \det(H) = L_{xx}L_{yy} - L_{xy}^2.
+        $$
+        \item Intuitively, a high response indicates a stable \emph{blob}-like structure.
+    \end{itemize}
+
+    \item Search for extrema in $(x,y,\sigma)$ (multi-scale detection):
+    \begin{itemize}
+        \item Search local maxima/minima not only in the image (spatial neighborhood) but also across neighboring scales.
+        \item Points that survive this selection are considered repeatable keypoints with a characteristic scale.
+    \end{itemize}
+
+    \item Refine localization and filter candidates:
+    \begin{itemize}
+        \item Refine the position of the extremum (better localization) and remove unstable/weak candidates according to the detector threshold (e.g., \texttt{threshold} in OpenCV).
+        \item This step controls the final number of points and their stability.
+    \end{itemize}
+
+    \item Assign orientation (unless using \texttt{upright} mode):
+    \begin{itemize}
+        \item If \texttt{upright = False}, KAZE estimates a dominant orientation around the keypoint (SURF-like derivatives).
+        \item This provides rotation invariance; if \texttt{upright = True}, the orientation step is skipped for speed, but rotation invariance is lost.
+    \end{itemize}
+
+    \item Compute the descriptor (M-SURF over the nonlinear scale space):
+    \begin{itemize}
+        \item Build a floating-point descriptor by integrating derivative responses over subregions around the keypoint.
+    \end{itemize}
+
+    \item Matching (when used in a full pipeline):
+    \begin{itemize}
+        \item KAZE descriptors are typically compared with an $L_2$ distance (in contrast to ORB, which uses Hamming).
+        \item This can improve matching quality in some cases, but it increases the computational cost of matching.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{ORB vs KAZE Comparison}
+
+\begin{table}[H]
+    \centering
+    \caption{ORB vs KAZE comparison}
+    \label{tab:orb_vs_kaze}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.28\linewidth} p{0.30\linewidth} p{0.30\linewidth}}
+        \hline
+        \textbf{Aspect} & \textbf{ORB} & \textbf{KAZE} \\
+        \hline
+        Descriptor type & Binary & Floating point (real) \\
+        Typical matching distance & Hamming & $L_2$ \\
+        Speed & Very high & Medium / low (vs ORB) \\
+        Memory per descriptor & Low & Higher \\
+        In-plane rotation & Good (orientation + rotated BRIEF) & Good if \texttt{upright=False} \\
+        Scale & Depends on pyramid (\texttt{nlevels}, \texttt{scaleFactor}) & Intrinsic multiscale (nonlinear) \\
+        Viewpoint (affine/projective) & Limited & Often behaves better under moderate changes \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
