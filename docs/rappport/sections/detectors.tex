@@ -1,53 +1,53 @@
-\section{Détecteurs}
+\section{Detectors}
 
-Dans le contexte de l'analyse d'images et de vidéos, il est souvent nécessaire
-de détecter des points d'intérêt, par exemple des bords, des coins, etc.
-C'est important pour des tâches d'appariement :
-comparer les descripteurs de deux images et obtenir des correspondances,
-estimer des transformations d'images (alignement),
-faire du suivi dans des vidéos à partir de ces points d'intérêt,
-et de l'odométrie visuelle pour estimer le mouvement de la caméra.
+In the context of image and video analysis, it is often necessary
+to detect interest points, for example edges, corners, etc.
+This is important for matching tasks:
+comparing descriptors from two images and obtaining correspondences,
+estimating image transformations (alignment),
+performing tracking in videos from these interest points,
+and visual odometry to estimate camera motion.
 
-\subsection{Fonction d'intérêt d'Harris}
+\subsection{Harris Interest Function}
 
-C'est ici qu'intervient la fonction (ou le détecteur) de Harris,
-qui est idéal quand la rapidité et la stabilité sont nécessaires.
-Cependant, lors de forts changements d'échelle, par exemple quand
-un objet apparaît beaucoup plus grand ou plus petit
-entre différents \emph{frames}, le détecteur de Harris est moins efficace.
+This is where the Harris function (or detector) comes in,
+which is ideal when speed and stability are required.
+However, with strong scale changes, for example when
+an object appears much larger or much smaller
+between different \emph{frames}, the Harris detector is less effective.
 
-La fonction d'intérêt de Harris se base sur le fait d'assigner une valeur à chaque pixel. Cette valeur mesure
-à quel point ce pixel est une \emph{intersection}, c'est-à-dire un \emph{coin}.
+The Harris interest function is based on assigning a value to each pixel. This value measures
+how much this pixel is an \emph{intersection}, that is, a \emph{corner}.
 
-Dire qu'un pixel est un coin signifie qu'on cherche à quel point il ressemble à l'intersection de deux bords.
-Autrement dit, à quel point ce pixel correspond à un endroit où l'image change fortement dans deux directions
-perpendiculaires. C'est utile, parce qu'avec une petite fenêtre de pixels (la fenêtre $W$), on peut estimer
-à quel point ce qu'on observe change au niveau de la structure.
+Saying that a pixel is a corner means we look at how much it resembles the intersection of two edges.
+In other words, how much this pixel corresponds to a place where the image changes strongly in two
+perpendicular directions. This is useful, because with a small pixel window (the window $W$), we can estimate
+how much what we observe changes at the structure level.
 
-Intuitivement, si on déplace légèrement la fenêtre $W$ autour d'un pixel, on observe :
+Intuitively, if we move the window $W$ slightly around a pixel, we observe:
 \begin{itemize}
-    \item \textbf{Zone plane (sans texture)} : la fenêtre change très peu $\rightarrow$ ce n'est pas un coin.
-    \item \textbf{Bord} : la fenêtre change peu en se déplaçant \emph{le long} du bord, mais change beaucoup 
-    en le \emph{traversant}.
-    \item \textbf{Coin} : la fenêtre change beaucoup dans presque n'importe quelle direction.
+    \item \textbf{Flat region (no texture)} : the window changes very little $\rightarrow$ this is not a corner.
+    \item \textbf{Edge} : the window changes little when moving \emph{along} the edge, but changes a lot
+    when \emph{crossing} it.
+    \item \textbf{Corner} : the window changes a lot in almost any direction.
 \end{itemize}
 
-Ce que fait Harris, c'est utiliser les gradients $I_x$ et $I_y$ pour savoir à quel point l'intensité change
- selon $x$ et selon $y$.
-Si autour du pixel il y a un changement fort dans une seule direction, on est plutôt sur un bord ; mais si 
-les changements forts sont dans deux
-directions, on parle d'un coin. Ainsi, $\Theta$, la réponse de Harris, est définie pixel par pixel : plus
-$\Theta$ est grande, plus le pixel est un \emph{coin}.
+What Harris does is use the gradients $I_x$ and $I_y$ to know how much intensity changes
+ along $x$ and along $y$.
+If around the pixel there is a strong change in only one direction, we are mostly on an edge; but if
+the strong changes are in two
+directions, we call it a corner. Thus, $\Theta$, the Harris response, is defined pixel by pixel: the larger
+$\Theta$ is, the more the pixel is a \emph{corner}.
 
-Dans le détecteur de Harris, la fonction d'intérêt se définit comme :
+In the Harris detector, the interest function is defined as:
 $$
 \Theta = R = \det(M) - k\,(\operatorname{trace}(M))^2
 $$
 
-Où $k$ est une valeur empirique de pénalisation : plus elle est grande, plus le critère est strict,
-donc moins de coins sont détectés. $M$ est la matrice de structure obtenue à partir des gradients
-$I_{x}$ et $I_{y}$, calculés après un lissage gaussien de l'image, avec le paramètre $\sigma$ qui contrôle
-le niveau de lissage (réduction du bruit et des détails fins). La matrice $M$ se définit par :
+Where $k$ is an empirical penalization value: the larger it is, the stricter the criterion,
+so fewer corners are detected. $M$ is the structure matrix obtained from the gradients
+$I_{x}$ and $I_{y}$, computed after Gaussian smoothing of the image, with parameter $\sigma$ that controls
+the smoothing level (noise reduction and fine-detail attenuation). The matrix $M$ is defined as:
 
 $$
 M(x,y)=
@@ -61,43 +61,43 @@ I_x(u,v)I_y(u,v) & I_y(u,v)^2
 \end{pmatrix}
 $$
 
-Où $w(u,v)$ est une fonction de poids (pondération) qui donne plus d'importance aux pixels proches du centre
-de la fenêtre $W$. Ainsi, la somme se fait sur une fenêtre autour du pixel analysé.
+Where $w(u,v)$ is a weighting function that gives more importance to pixels close to the center
+of window $W$. Thus, the sum is computed over a window around the analyzed pixel.
 
 \begin{itemize}
-  \item $I_x^2$ mesure à quel point l'image change dans la direction horizontale.
-  \item $I_y^2$ mesure à quel point l'image change dans la direction verticale.
-  \item $I_x I_y$ mesure la corrélation entre ces deux variations.
+  \item $I_x^2$ measures how much the image changes in the horizontal direction.
+  \item $I_y^2$ measures how much the image changes in the vertical direction.
+  \item $I_x I_y$ measures the correlation between these two variations.
 \end{itemize}
 
-Et concernant les valeurs propres de $M$ : si les deux sont grandes, alors $R$ est grand et le pixel est un
-\emph{coin}. Si l'une est grande et l'autre petite, alors $R$ devient négatif et le pixel correspond à un
-\emph{bord}. Si les deux sont petites, alors $R$ est petit et le pixel est une zone plane.
+And regarding the eigenvalues of $M$: if both are large, then $R$ is large and the pixel is a
+\emph{corner}. If one is large and the other small, then $R$ becomes negative and the pixel corresponds to an
+\emph{edge}. If both are small, then $R$ is small and the pixel is a flat region.
 
-Enfin, le déterminant de $M$ correspond au produit des valeurs propres, tandis que la trace correspond à leur
-somme. Mais la trace ne distingue pas bien les bords des coins, c'est pour cela qu'on la pénalise (avec le
-terme en $k$). La trace mesure surtout le changement global, alors que le déterminant met mieux en évidence
-un vrai coin.
+Finally, the determinant of $M$ corresponds to the product of the eigenvalues, while the trace corresponds to their
+sum. But the trace does not distinguish edges from corners very well, which is why it is penalized (with the
+term in $k$). The trace mostly measures global change, while the determinant highlights
+a true corner better.
 
-Par ailleurs, cette fonction d'intérêt est calculée à une seule échelle : on utilise un seul niveau de
-lissage et une seule taille de fenêtre pour calculer $M$.
+Moreover, this interest function is computed at a single scale: we use one smoothing level
+and one window size to compute $M$.
 
-\subsection{Dilatation Morphologique}
+\subsection{Morphological Dilation}
 
-Dans le traitement d'images, on cherche souvent à obtenir une valeur
-représentative d'un voisinage.
-Dans le cas de la dilatation morphologique, cette valeur correspond,
-pour chaque pixel, au maximum dans ce voisinage.
-Ce voisinage est défini par un élément structurant,
-par exemple une fenêtre $3 \times 3$.
+In image processing, we often seek to obtain a
+representative value of a neighborhood.
+In the case of morphological dilation, this value corresponds,
+for each pixel, to the maximum in that neighborhood.
+This neighborhood is defined by a structuring element,
+for example a $3 \times 3$ window.
 
-Dans le cas de Harris, cette dilatation morphologique est utilisée pour
-détecter les maxima locaux puis faire la suppression des non-maxima.
-Autrement dit, l'objectif est de garder les pics (les coins) les plus forts.
+In the Harris case, this morphological dilation is used to
+detect local maxima and then perform non-maximum suppression.
+In other words, the goal is to keep the strongest peaks (the corners).
 
-Dans le code de \texttt{Harris.py},
-la variable \texttt{se} définit la fenêtre/le voisinage comme une matrice
-de 1 de taille \texttt{d\_maxloc}, avec \texttt{d\_maxloc = 3} :
+In the code of \texttt{Harris.py},
+the variable \texttt{se} defines the window/neighborhood as a matrix
+of ones of size \texttt{d\_maxloc}, with \texttt{d\_maxloc = 3}:
 
 \begin{verbatim}
 d_maxloc = 3
@@ -106,25 +106,25 @@ se = np.ones(
 )
 \end{verbatim}
 
-Ensuite, l'instruction suivante fait que chaque pixel prend la valeur
-la plus grande de sa fenêtre :
+Then, the following instruction makes each pixel take the value
+of the largest value in its window:
 
 \begin{verbatim}
 Theta_dil = cv2.dilate(Theta, se)
 \end{verbatim}
 
-Après, avec l'instruction suivante, on réalise une comparaison pixel
-par pixel :
+After that, with the following instruction, we perform a pixel-by-pixel
+comparison:
 
 \begin{verbatim}
 Theta_maxloc[Theta < Theta_dil] = 0.0
 \end{verbatim}
 
-Si la valeur originale est différente de la valeur dilatée, alors ce pixel
-n'était pas un maximum local, donc sa valeur est supprimée (mise à zéro).
-Dans le cas contraire, la valeur est conservée car c'est bien un maximum local.
+If the original value is different from the dilated value, then this pixel
+was not a local maximum, so its value is removed (set to zero).
+Otherwise, the value is kept because it is indeed a local maximum.
 
-Enfin, on applique un seuil relatif pour éliminer les maxima trop faibles :
+Finally, we apply a relative threshold to remove maxima that are too weak:
 
 \begin{verbatim}
 Theta_maxloc[
@@ -132,11 +132,11 @@ Theta_maxloc[
 ] = 0.0
 \end{verbatim}
 
-\subsection{Résultats}
+\subsection{Results}
 
-Le script \texttt{Harris.py} a été exécuté 50 fois avec \texttt{-stats}
-sur l'image \texttt{Graffiti0.png}. Les mesures suivantes ont été obtenues.
-Les résultats ci-dessous ont été mesurés avec les paramètres suivants :
+The script \texttt{Harris.py} was run 50 times with \texttt{-stats}
+on image \texttt{Graffiti0.png}. The following measurements were obtained.
+The results below were measured with the following parameters:
 
 \begin{verbatim}
 SUM_WINDOW_SIZE = 5
@@ -146,26 +146,26 @@ RELATIVE_THRESHOLD = 0.01
 \end{verbatim}
 
 \begin{itemize}
-    \item Dimension de l'image (niveau de gris) : $320 \times 400$.
-    \item Type de l'image (niveau de gris) : \texttt{float64}.
-    \item Dimension de l'image (couleur) : $320 \times 400 \times 3$.
-    \item Type de l'image (couleur) : \texttt{uint8}.
+    \item Image size (grayscale) : $320 \times 400$.
+    \item Image type (grayscale) : \texttt{float64}.
+    \item Image size (color) : $320 \times 400 \times 3$.
+    \item Image type (color) : \texttt{uint8}.
 \end{itemize}
 
 \begin{table}[H]
     \centering
-    \caption{Statistiques sur 50 exécutions du détecteur de Harris}
+    \caption{Statistics over 50 runs of the Harris detector}
     \label{tab:harris_stats}
     \begin{tabular}{lc}
         \hline
-        Métrique & Valeur \\
+        Metric & Value \\
         \hline
-        Temps moyen [s] & 0.003224673 \\
-        Variance du temps [s$^2$] & 0.000002632168 \\
-        Écart-type du temps [s] & 0.001622396 \\
-        Cycles/pixel moyen [cpp] & 25.192756 \\
-        Variance cycles/pixel [cpp$^2$] & 160.654768461 \\
-        Écart-type cycles/pixel [cpp] & 12.674966 \\
+        Mean time [s] & 0.003224673 \\
+        Time variance [s$^2$] & 0.000002632168 \\
+        Time standard deviation [s] & 0.001622396 \\
+        Mean cycles/pixel [cpp] & 25.192756 \\
+        Cycles/pixel variance [cpp$^2$] & 160.654768461 \\
+        Cycles/pixel standard deviation [cpp] & 12.674966 \\
         \hline
     \end{tabular}
 \end{table}
@@ -173,16 +173,16 @@ RELATIVE_THRESHOLD = 0.01
 \begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{../../results/harris_points.png}
-    \caption{Visualisation des points d'intérêt détectés par Harris sur \texttt{Graffiti0.png}.}
+    \caption{Visualization of interest points detected by Harris on \texttt{Graffiti0.png}.}
     \label{fig:harris_points}
 \end{figure}
 
-\subsection{Analyse Paramétrique du Détecteur de Harris}
+\subsection{Parametric Analysis of the Harris Detector}
 
-Cette étude paramétrique a été réalisée avec la commande
-\texttt{python Harris.py -stats 50 -plots}. L'échantillon correspond à
-50 exécutions du calcul de Harris pour chaque valeur testée.
-Pendant chaque balayage, les autres paramètres restent fixés à :
+This parametric study was conducted with command
+\texttt{python Harris.py -stats 50 -plots}. The sample corresponds to
+50 runs of Harris computation for each tested value.
+During each sweep, the other parameters remain fixed to:
 \texttt{SUM\_WINDOW\_SIZE = 5}, \texttt{HARRIS\_K = 0.04},
 \texttt{MAXLOC\_NEIGHBORHOOD\_SIZE = 3},
 \texttt{RELATIVE\_THRESHOLD = 0.01}.
@@ -200,19 +200,19 @@ Pendant chaque balayage, les autres paramètres restent fixés à :
         \centering
         \includegraphics[width=\linewidth]{../../results/plots/harris/time_vs_sum_window_size.png}
         \vspace{2mm}
-        \textbf{(b)} Temps moyen vs \texttt{SUM\_WINDOW\_SIZE}
+        \textbf{(b)} Mean time vs \texttt{SUM\_WINDOW\_SIZE}
     \end{minipage}
-    \caption{Impact de \texttt{SUM\_WINDOW\_SIZE} sur le coût de calcul.}
+    \caption{Impact of \texttt{SUM\_WINDOW\_SIZE} on computational cost.}
     \label{fig:harris_sum_window_analysis}
 \end{figure}
 
-Quand \texttt{SUM\_WINDOW\_SIZE} augmente, le temps moyen et les cycles/pixel
-augmentent nettement, car la convolution locale est plus coûteuse.
-Du point de vue détection, une grande fenêtre stabilise la mesure de structure
-(moins sensible au bruit), mais tend à lisser les détails fins et à réduire
-le nombre de coins faibles détectés. À l'inverse, une petite fenêtre capte plus
-de micro-variations (plus de coins potentiels), au prix d'une sensibilité plus forte
-au bruit et donc d'un risque accru de faux positifs.
+When \texttt{SUM\_WINDOW\_SIZE} increases, mean time and cycles/pixel
+increase clearly, because local convolution is more expensive.
+From a detection point of view, a large window stabilizes the structure measure
+(less sensitive to noise), but tends to smooth fine details and reduce
+the number of weak detected corners. Conversely, a small window captures more
+micro-variations (more potential corners), at the cost of stronger sensitivity
+to noise and therefore a higher risk of false positives.
 
 \begin{figure}[H]
     \centering
@@ -227,19 +227,19 @@ au bruit et donc d'un risque accru de faux positifs.
         \centering
         \includegraphics[width=\linewidth]{../../results/plots/harris/time_vs_harris_k.png}
         \vspace{2mm}
-        \textbf{(b)} Temps moyen vs \texttt{HARRIS\_K}
+        \textbf{(b)} Mean time vs \texttt{HARRIS\_K}
     \end{minipage}
-    \caption{Impact de \texttt{HARRIS\_K} sur le coût de calcul.}
+    \caption{Impact of \texttt{HARRIS\_K} on computational cost.}
     \label{fig:harris_k_analysis}
 \end{figure}
 
-La variation de \texttt{HARRIS\_K} modifie peu le coût (même pipeline de calcul,
-mêmes opérateurs principaux), ce qui est cohérent avec les courbes de temps/CPP.
-En revanche, l'effet sur la sélection des coins est important :
-un \texttt{HARRIS\_K} faible est plus permissif (plus de points retenus, y compris
-des points ambigus proches des bords), tandis qu'un \texttt{HARRIS\_K} élevé
-renforce la pénalisation de la trace, donc la sélection devient plus stricte
-et le nombre de coins tend à diminuer, avec une meilleure stabilité géométrique.
+The variation of \texttt{HARRIS\_K} changes the cost only slightly (same computation pipeline,
+same main operators), which is consistent with the time/CPP curves.
+However, the effect on corner selection is important:
+a low \texttt{HARRIS\_K} is more permissive (more points kept, including
+ambiguous points near edges), while a high \texttt{HARRIS\_K}
+reinforces trace penalization, so selection becomes stricter
+and the number of corners tends to decrease, with better geometric stability.
 
 \begin{figure}[H]
     \centering
@@ -247,91 +247,92 @@ et le nombre de coins tend à diminuer, avec une meilleure stabilité géométri
         \centering
         \includegraphics[width=\linewidth]{../../results/plots/harris/cpp_vs_maxloc_neighborhood_size.png}
         \vspace{2mm}
-        \textbf{(a)} Cycles/pixel vs taille du voisinage NMS
+        \textbf{(a)} Cycles/pixel vs NMS neighborhood size
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{../../results/plots/harris/time_vs_maxloc_neighborhood_size.png}
         \vspace{2mm}
-        \textbf{(b)} Temps moyen vs taille du voisinage NMS
+        \textbf{(b)} Mean time vs NMS neighborhood size
     \end{minipage}
-    \caption{Impact de la taille du voisinage NMS sur le coût de calcul.}
+    \caption{Impact of NMS neighborhood size on computational cost.}
     \label{fig:harris_maxloc_analysis}
 \end{figure}
 
-Quand \texttt{MAXLOC\_NEIGHBORHOOD\_SIZE} augmente, le coût augmente de manière
-modérée, car la dilatation/non-max suppression parcourt un voisinage plus large.
-Ce paramètre agit surtout sur la densité finale des points :
-un voisinage grand rend la suppression non-maxima plus agressive
-(moins de coins, mieux espacés, moins redondants), tandis qu'un voisinage petit
-laisse passer plus de maxima locaux proches les uns des autres
-(plus de coins, mais plus de redondance spatiale).
+When \texttt{MAXLOC\_NEIGHBORHOOD\_SIZE} increases, the cost increases
+moderately, because dilation/non-max suppression scans a larger neighborhood.
+This parameter mainly acts on final point density:
+a large neighborhood makes non-maximum suppression more aggressive
+(fewer corners, better spacing, less redundancy), while a small neighborhood
+lets more nearby local maxima pass
+(more corners, but more spatial redundancy).
 
-En synthèse, il existe un compromis classique entre sensibilité et robustesse :
-augmenter la sensibilité aux détails produit souvent plus de coins, mais aussi
-plus de bruit et de faux coins ; renforcer la robustesse réduit les faux positifs,
-mais peut éliminer des coins faibles utiles pour certaines scènes.
-Pour ce jeu d'images, la configuration de base
+In summary, there is a classic tradeoff between sensitivity and robustness:
+increasing detail sensitivity often produces more corners, but also
+more noise and false corners; reinforcing robustness reduces false positives,
+but may remove weak corners useful for some scenes.
+For this image set, the baseline configuration
 (\texttt{SUM\_WINDOW\_SIZE} = 5, \texttt{HARRIS\_K} = 0.04,
-voisinage NMS = 3) reste un compromis raisonnable.
+NMS neighborhood = 3) remains a reasonable compromise.
 
-\subsection{Calcul de Harris sur Plusieurs Échelles}
+\subsection{Harris Computation at Multiple Scales}
 
-Dans l'implémentation actuelle de \texttt{Harris.py}, le détecteur est
-mono-échelle : on utilise un lissage gaussien fixe
-(\texttt{sigma = 1.0}) ainsi qu'une fenêtre de sommation fixe pour construire
-la matrice de structure.
-Cette approche fonctionne bien pour une échelle donnée, mais elle perd en
-robustesse lorsque la taille apparente des objets varie entre les images.
+In the current implementation of \texttt{Harris.py}, the detector is
+single-scale: we use fixed Gaussian smoothing
+(\texttt{sigma = 1.0}) as well as a fixed summation window to build
+the structure matrix.
+This approach works well for a given scale, but it loses
+robustness when the apparent size of objects varies between images.
 
-\textbf{Remarque.} Le paramètre \(\sigma\) représente le niveau de lissage
-gaussien : plus \(\sigma\) est grand, plus le lissage est fort, et plus les
-détails fins de l'image sont atténués (voire effacés).
+\textbf{Note.} Parameter \(\sigma\) represents the Gaussian smoothing
+level: the larger \(\sigma\), the stronger the smoothing, and the more
+fine image details are attenuated (or even erased).
 
-Pour réaliser le calcul de Harris sur plusieurs échelles, on travaille dans
-l'espace d'échelle \((x,y,\sigma)\) :
+To perform Harris computation at multiple scales, we work in
+scale-space \((x,y,\sigma)\):
 \begin{enumerate}
-    \item Définir un ensemble d'échelles \(\sigma_1,\sigma_2,\dots,\sigma_n\)
-    (ou construire une pyramide gaussienne).
-    \item Pour chaque \(\sigma_i\), calculer \(I_x\), \(I_y\), la matrice
-    \(M_{\sigma_i}\), puis la réponse de Harris \(R_{\sigma_i}\).
-    \item Normaliser les réponses entre échelles pour les rendre comparables.
-    \item Appliquer une suppression de non-maxima en 2D à chaque échelle,
-    puis l'étendre en 3D :
-    un point est conservé s'il est maximal dans son voisinage spatial et aussi
-    par rapport à \(\sigma_{i-1}\), \(\sigma_i\) et \(\sigma_{i+1}\).
-    \item Appliquer un seuil, puis reprojeter les points dans l'image originale
-    en conservant leur échelle caractéristique.
+    \item Define a set of scales \(\sigma_1,\sigma_2,\dots,\sigma_n\)
+    (or build a Gaussian pyramid).
+    \item For each \(\sigma_i\), compute \(I_x\), \(I_y\), the matrix
+    \(M_{\sigma_i}\), then the Harris response \(R_{\sigma_i}\).
+    \item Normalize responses across scales to make them comparable.
+    \item Apply 2D non-maximum suppression at each scale,
+    then extend it to 3D:
+    a point is kept if it is maximal in its spatial neighborhood and also
+    relative to \(\sigma_{i-1}\), \(\sigma_i\), and \(\sigma_{i+1}\).
+    \item Apply a threshold, then reproject the points into the original image
+    while keeping their characteristic scale.
 \end{enumerate}
 
-Les principaux compromis sont les suivants :
+The main tradeoffs are the following:
 \begin{itemize}
-    \item Plus d'échelles : meilleure robustesse aux changements de taille, mais
-    coût de calcul plus élevé.
-    \item Petites échelles : plus de détails et potentiellement plus de coins,
-    mais aussi davantage de sensibilité au bruit.
-    \item Grandes échelles : détection plus stable, mais risque de perdre des
-    coins fins ou faibles.
+    \item More scales: better robustness to size changes, but
+    higher computational cost.
+    \item Small scales: more details and potentially more corners,
+    but also stronger sensitivity to noise.
+    \item Large scales: more stable detection, but risk of losing
+    fine or weak corners.
 \end{itemize}
 
-Finalement, le lien avec la distance minimale \(r\) entre points d'intérêt est le suivant.
-Pour garantir que deux points détectés restent séparés d'au moins \(r\) pixels,
-on peut utiliser une suppression de non-maxima avec un rayon \(r\), ou une
+Finally, the link with minimum distance \(r\) between interest points is the following.
+To guarantee that two detected points stay separated by at least \(r\) pixels,
+we can use non-maximum suppression with radius \(r\), or
 ANMS (\emph{Adaptive Non-Maximum Suppression}).
-Cela réduit la redondance spatiale et améliore la répartition des coins
-dans l'image.
+This reduces spatial redundancy and improves corner distribution
+in the image.
 
-Au lieu d'utiliser un rayon fixe identique partout, l'ANMS attribue à chaque
-coin candidat un rayon adaptatif \(r_i\), défini comme la distance au coin plus
-fort le plus proche.
-C'est-à-dire que
+Instead of using one fixed radius everywhere, ANMS assigns to each
+candidate corner an adaptive radius \(r_i\), defined as the distance to the closest
+stronger corner.
+That is:
 \begin{itemize}
-    \item un coin très fort, isolé, obtient un grand rayon \(r_i\) ;
-    \item un coin faible situé près d'un coin plus fort obtient un petit rayon.
+    \item a very strong, isolated corner gets a large radius \(r_i\);
+    \item a weak corner near a stronger corner gets a small radius.
 \end{itemize}
-Ensuite, on trie les candidats selon \(r_i\) et on conserve les points avec les
-plus grands rayons.
-On garde ainsi des coins à la fois fiables (bonne réponse Harris) et bien
-répartis spatialement, ce qui est souvent préférable à une sélection locale
-très dense dans une petite zone de l'image.
+
+Then, candidates are sorted by \(r_i\), and points with the
+largest radii are kept.
+This way, we keep corners that are both reliable (good Harris response) and well
+distributed spatially, which is often preferable to a very dense
+local selection in a small region of the image.
