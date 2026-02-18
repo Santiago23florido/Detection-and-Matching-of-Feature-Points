@@ -1,0 +1,59 @@
+ENSTA 2e ann´ee - Cours CSC 4MI04 TP1 : D´etection et Appariement de Points
+Caract´eristiques
+L’objectif de ce TP est de (1) se familiariser avec la biblioth`eque de traitement d’images OpenCV sous Python, et (2) exp´erimenter, critiquer et mettre en œuvre diﬀ´erentes techniques de repr´esentation pour l’appariement de structures locales dans les images, en suivant les diﬀ´erentes ´etapes de la probl´ematique :
+• de´tecteur : Comment r´eduire le support de la repr´esentation. • descripteur : Quelle information attacher `a chaque point du support. • me´trique : Quelle mesure utiliser pour apparier des points. • recherche : Comment coder et parcourir l’espace des points d’un mod`ele.
+Vous devez fournir un rapport, au format pdf, en justiﬁant autant que possible vos r´eponses avec des exp´eriences personnelles.
+1 Pr´eliminaires informatiques
+Une base de code est fournie, qui fonctionne avec une installation standard d’OpenCV (sans opencvcontrib, version test´ee 4.1.0) et Python3. L’archive contenant cette base peut ˆetre t´el´echarg´ee au lien suivant : https://perso.ensta-paris.fr/~manzaner/Cours/MI204/TP1_Features.zip
+Tous les codes fournis sont des scripts Python3 ´editables et ex´ecutables en lanc¸ant la commande, par exemple : $ python3 Convolutions.py
+Certains scripts n´ecessitent des arguments, voir le code Python pour plus de d´etails. On trouvera quelques paires d’images de test dans le mˆeme r´epertoire que le logiciel de TP : http://perso.ensta-paris.fr/~manzaner/Cours/MI204/Image_Pairs.zip
+OpenCV est une biblioth`eque tr`es utilis´ee en analyse d’images et on pourra consulter avec proﬁt de nombreux guides et tutoriels en ligne (attention toutefois aux versions de Python et d’OpenCV fournies dans les exemples). On se limitera ici a` mentionner les sites oﬃciels pour le guide de r´ef´erence des fonctions : https://docs.opencv.org/4.1.0/ ainsi que le tutoriel : https://docs.opencv.org/4.1.0/d6/d00/tutorial_py_root.html
+1
+
+2 Format d’images et Convolutions
+
+Q1 Expe´rimenter le code de convolution fourni en exemple dans Convolutions.py. Observer la diﬀ´erence entre le calcul direct par balayage du tableau 2d et le calcul utilisant la fonction ﬁlter2d d’OpenCV. D´echiﬀrer les fonctions OpenCV utilis´ees pour la lecture et la copie d’images, ainsi que la fonction MatPlotLib utilis´ee pour l’aﬃchage.
+
+Q2 Expliquer pourquoi le noyau de convolution fourni en exemple r´ealise un r´ehaussement de contraste par rapport `a l’image originale.
+
+Q3 Modifier le code pour calculer les convolutions qui approximent les composantes du gradient
+
+Ix
+
+=
+
+∂I ∂x
+
+et
+
+Iy
+
+=
+
+∂I ∂y
+
+.
+
+Calculer ensuite la norme
+
+euclidienne du gradient ||∇I|| =
+
+Ix2 + Iy2. Quelles
+
+pr´ecautions doivent ˆetre prises pour obtenir un aﬃchage correct (i.e. qui montrent l’ensemble des
+
+valeurs, n´egatives comme positives) dans tous les cas ?
+
+3 D´etecteurs
+Q4 Comple´ter le code fourni dans le script Harris.py pour calculer la fonction d’int´erˆet de Harris (`a une seule ´echelle, en utilisant une fenˆetre W de taille ﬁxe), et les points d’int´erˆet correspondants. Expliquer comment le code fourni, qui utilise la dilatation morphologique (maximum dans un voisinage donn´e), permet de calculer les maxima locaux de la fonction d’int´erˆet Theta.
+Q5 Commenter les r´esultats obtenus avec votre d´etecteur de Harris et l’eﬀet des param`etres utilis´es, taille de la fenˆetre de sommation et valeur de α en particulier. Comment peut-on r´ealiser ce calcul sur plusieurs ´echelles ? Comment ´etendre la notion de maxima locaux pour faire en sorte que deux points d’int´erˆet soient toujours distants d’au moins r pixels ?
+Q6 Expe´rimenter et comparer les deux d´etecteurs ORB et KAZE en lan¸cant le script Features Detect.py. Rappeler le principe de chacun de ces d´etecteurs. Expliquer les principaux param`etres propres `a chaque d´etecteur et leur eﬀet sur la d´etection. Comment peut-on visuellement ´evaluer la r´ep´etabilit´e de chaque d´etecteur appliqu´e sur une paire d’images ?
+
+4 Descripteurs et Appariement
+Q7 Expliquer le principe des descripteurs attach´es aux points ORB et ceux attach´es aux points KAZE. Quelles propri´et´es des d´etecteurs et/ou des descripteurs (distinguer les deux aspects dans la r´eponse), permettent de rendre l’appariement invariant par changement d’´echelles et invariant par rotation ?
+Q8 Expliquer et comparer qualitativement les performances des trois strat´egies d’appariement de points d’int´erˆet r´ealis´ees dans les trois scripts Features Match CrossCheck.py, Features Match RatioTest.py et Features Match FLANN.py. Expliquer pourquoi les distances utilis´ees sont diﬀ´erentes pour les deux descripteurs.
+Q9 Proposer une strat´egie pour ´evaluer quantitativement la qualit´e des appariements en d´eformant une image avec une transformation g´eom´etrique connue (on pourra utiliser une fonction telle que cv2.warpAﬃne).
+
+2
+
+
