@@ -15,11 +15,9 @@ The provided code in \texttt{Convolutions.py} relies on several OpenCV and Matpl
 
 The image is loaded with \texttt{cv2.imread(path, 0)}, where the flag \texttt{0} forces grayscale loading as a single-channel 8-bit array, and the result is cast to \texttt{float64} via \texttt{np.float64()} so that subsequent convolution operations can produce values outside $[0,255]$ without overflow. For copying the image, the code calls \texttt{cv2.copyMakeBorder\allowbreak(img,\allowbreak0,0,0,0,\allowbreak cv2.BORDER\_REPLICATE)} with zero padding on every side, which in practice just creates a deep copy; the \texttt{BORDER\_REPLICATE} flag would replicate edge pixels if positive padding were specified. The optimized convolution is done via \texttt{cv2.filter2D(img, -1, kernel)}, where \texttt{-1} means the output keeps the same depth as the input; internally, this delegates to OpenCV's C++ backend, which can use SIMD and multi-threading \cite{opencv_filter2d}.
 
-An important detail concerns the display conventions: \texttt{cv2.imshow} interprets integer arrays on $\{0,\ldots,255\}$ but floating-point arrays on $[0,1]$, which is why the code divides by $255$ when showing the \texttt{filter2D} result. On the other hand, \texttt{plt.imshow} normalizes the array range to the colormap by default, so to get a consistent grayscale display the code explicitly sets \texttt{vmin=0.0, vmax=255.0} and \texttt{cmap='gray'}.
-
 \subsection{Direct Computation vs OpenCV filter2D}
 
-The code compares two ways of computing the convolution of the grayscale image \texttt{FlowerGarden2.png} ($240\times360$ pixels) with the $3\times3$ sharpening kernel. The first is a direct method that uses a nested Python loop over all interior pixels $(y,x)$ with $1 \le y \le h{-}2$, $1 \le x \le w{-}2$, computing explicitly:
+The code compares two ways of computing the convolution of the grayscale image \texttt{FlowerGarden2.png} ($240\times360$ pixels) with the $3\times3$ sharpening kernel. The first is a direct method thaimitationt uses a nested Python loop over all interior pixels $(y,x)$ with $1 \le y \le h{-}2$, $1 \le x \le w{-}2$, computing explicitly:
 
 \begin{equation}
 \label{eq:direct_val}
@@ -87,8 +85,7 @@ The results in Fig.~\ref{fig:visual-comparison} confirm this. A pixel-wise compa
 
 \subsection{Contrast Enhancement by Unsharp Masking}
 
-The convolution kernel provided in the TP code is:
-
+The goal of this subsection is to explain \emph{why} the $3\times 3$ convolution kernel used in the TP code enhances contrast. The kernel is:
 \begin{equation}
 \label{eq:kernel}
 K=
@@ -98,63 +95,111 @@ K=
  0 & -1 &  0
 \end{pmatrix}.
 \end{equation}
+At first glance the coefficients may seem arbitrary, but they have a precise algebraic structure: $K$ can be decomposed as the identity minus a discrete Laplacian. This decomposition reveals that $K$ implements \emph{unsharp masking}, a classical technique that preserves low-frequency content (uniform regions) while amplifying high-frequency content (edges).
 
-To understand why this kernel enhances contrast, we can decompose it algebraically. Noting that the coefficients sum to $0+(-1)+0+(-1)+5+(-1)+0+(-1)+0 = 1$ and that the central value is $5$ while the four cardinal neighbors are $-1$, this can be rewritten as the identity kernel minus the discrete Laplacian:
-
+\paragraph{Step 1 --- The discrete Laplacian.}
+The continuous Laplacian of a function $f(x,y)$ is
+\(
+\Delta f=\frac{\partial^2 f}{\partial x^2}+\frac{\partial^2 f}{\partial y^2}.
+\)
+On a discrete pixel grid, each second derivative is approximated by a centered finite difference (e.g.\ $\frac{\partial^2 f}{\partial x^2}\approx f[i,j{+}1]-2f[i,j]+f[i,j{-}1]$), and the sum of both gives the 4-connected Laplacian stencil:
 \begin{equation}
-\label{eq:kernel_decomp}
-K = \underbrace{
-\begin{pmatrix}
-0 & 0 & 0 \\
-0 & 1 & 0 \\
-0 & 0 & 0
-\end{pmatrix}}_{\delta}
-\;-\;
-\underbrace{
+\label{eq:L4_def}
+L_4 =
 \begin{pmatrix}
  0 &  1 &  0 \\
  1 & -4 &  1 \\
  0 &  1 &  0
-\end{pmatrix}}_{\nabla^{2}}.
+\end{pmatrix},
+\qquad
+(f \star L_4)[i,j] \approx \Delta f(i,j).
 \end{equation}
+Two properties of $L_4$ are important: its coefficients sum to zero (so it has no DC response: a constant image gives zero output), and its output is \emph{signed} (positive where the pixel is darker than its neighbors, negative where it is brighter).
 
-This means the convolution result can be expressed as:
-
+\paragraph{Step 2 --- Decomposing $K$ as identity minus Laplacian.}
+Let $\delta$ denote the identity kernel
+\(
+\delta=
+\begin{psmallmatrix}
+0&0&0\\
+0&1&0\\
+0&0&0
+\end{psmallmatrix}.
+\)
+Subtracting $L_4$ from $\delta$ coefficient by coefficient:
+\begin{equation}
+\label{eq:kernel_decomp}
+\delta - L_4
+=
+\begin{psmallmatrix}0&0&0\\0&1&0\\0&0&0\end{psmallmatrix}
+-
+\begin{psmallmatrix}0&1&0\\1&{-4}&1\\0&1&0\end{psmallmatrix}
+=
+\begin{psmallmatrix}0&{-1}&0\\{-1}&5&{-1}\\0&{-1}&0\end{psmallmatrix}
+= K.
+\end{equation}
+This is verified numerically in Fig.~\ref{fig:kernel-decomp}. Since convolution is linear, the output of filtering with $K$ can be split into two terms:
 \begin{equation}
 \label{eq:unsharp}
-I_{\text{out}} = I * K = I - \nabla^{2} I.
+f_{\text{out}}
+= f \star K
+= f \star (\delta - L_4)
+= \underbrace{f \star \delta}_{=\,f}
+  \;-\;
+  \underbrace{f \star L_4}_{\approx\,\Delta f}
+= f - (f \star L_4).
 \end{equation}
-
-The Laplacian $\nabla^{2} I$ measures the second-order intensity variation: it is positive where a pixel is darker than its neighbors and negative where it is brighter. Subtracting this from the original image amplifies intensity transitions at edges---the dark side of an edge becomes darker and the bright side becomes brighter---while leaving flat regions essentially unchanged (since $\nabla^{2} I \approx 0$ there). This is the classical \emph{unsharp masking} mechanism \cite{gonzalez_woods_dip}.
-
-Based on this decomposition, the hypothesis is as follows: (1)~the sharpened image should show visually crisper edges compared to the original, with the effect concentrated around contours and fine structures; (2)~the global histogram should become wider (higher standard deviation) because edge pixels are pushed to more extreme values; and (3)~the mean intensity should be approximately preserved, since the Laplacian kernel has zero DC response (its coefficients sum to zero) and therefore does not add or remove energy from the image on average.
+This is exactly the \emph{Laplacian-based unsharp masking} formula $f_{\text{out}} = f - \gamma\,\Delta f$ with gain $\gamma=1$.
 
 \begin{figure}[!t]
   \centering
   \includegraphics[width=\linewidth]{imgs/convolutions/kernel_decomposition.png}
-  \caption{Visual verification of the kernel decomposition $K = \delta - \nabla^{2}$.}
+  \caption{Kernel decomposition: $K=\delta-L_4$ (4-neighborhood Laplacian).}
   \label{fig:kernel-decomp}
 \end{figure}
 
-Fig.~\ref{fig:kernel-decomp} shows the decomposition verified numerically: the element-by-element subtraction $\delta - \nabla^{2}$ reconstructs $K$ exactly.
+\paragraph{Step 3 --- Why does this enhance contrast? (pixel-level view).}
+To understand the effect intuitively, we can rewrite Eq.~\eqref{eq:unsharp} in terms of the local neighborhood. Writing out the Laplacian convolution at pixel $[i,j]$:
+\begin{equation}
+\label{eq:laplacian_pixel}
+(f \star L_4)[i,j]
+=
+f[i{+}1,j]+f[i{-}1,j]+f[i,j{+}1]+f[i,j{-}1]-4f[i,j].
+\end{equation}
+If we define the mean of the four direct neighbors as
+\begin{equation}
+\label{eq:neighbor_mean}
+\overline{f}_{N_4}[i,j]
+=
+\tfrac{1}{4}\!\left(f[i{+}1,j]+f[i{-}1,j]+f[i,j{+}1]+f[i,j{-}1]\right),
+\end{equation}
+then the Laplacian simplifies to $(f \star L_4)[i,j]=4\bigl(\overline{f}_{N_4}[i,j]-f[i,j]\bigr)$. Substituting into Eq.~\eqref{eq:unsharp}:
+\begin{equation}
+\label{eq:local_boost}
+f_{\text{out}}[i,j]
+=
+f[i,j] \;+\; 4\!\left(f[i,j]-\overline{f}_{N_4}[i,j]\right).
+\end{equation}
+Equation~\eqref{eq:local_boost} is the key: the output equals the original value plus a correction proportional to how much the pixel \emph{differs from its local mean}. Three cases arise:
+\begin{itemize}
+\item \textbf{Smooth region} ($f[i,j]\approx\overline{f}_{N_4}$): the correction is nearly zero, so $f_{\text{out}}\approx f$. Uniform areas are preserved.
+\item \textbf{Locally bright pixel} ($f[i,j]>\overline{f}_{N_4}$): the correction is positive, pushing the pixel \emph{brighter}.
+\item \textbf{Locally dark pixel} ($f[i,j]<\overline{f}_{N_4}$): the correction is negative, pushing the pixel \emph{darker}.
+\end{itemize}
+In short, pixels are pushed \emph{away} from their local mean. At an edge, the bright side becomes brighter and the dark side becomes darker, which is exactly what ``enhancing contrast'' means.
+
+\paragraph{Experimental results.}
+Fig.~\ref{fig:unsharp-components} shows the decomposition applied to the test image: the Laplacian response (panel~b) is signed and concentrated at edges, while the sharpened result (panel~d) shows visibly crisper contours.
 
 \begin{figure}[!t]
   \centering
   \includegraphics[width=\linewidth]{imgs/convolutions/unsharp_components.png}
-  \caption{Unsharp masking components: (a)~original image $f$, (b)~Laplacian $\nabla^{2}f$ (red = positive, blue = negative), (c)~$|\nabla^{2}f|$ rescaled to $[0,255]$, (d)~sharpened result $f - \nabla^{2}f$ after clipping.}
+  \caption{Unsharp masking components: (a)~original $f$, (b)~Laplacian $f\star L_4$ (signed, divergent colormap), (c)~$|f\star L_4|$ rescaled to $[0,255]$, (d)~sharpened result $f-(f\star L_4)$ after clipping.}
   \label{fig:unsharp-components}
 \end{figure}
 
-When applying the decomposition to the actual image, the components are shown in Fig.~\ref{fig:unsharp-components}. The Laplacian map (panel b) reveals the edge structure: transitions between regions of different intensity appear as pairs of positive and negative values, while flat areas stay near zero. As expected from the hypothesis, the sharpened image (panel d) shows noticeably crisper edges, especially visible in the flower contours and the fence structures, while smooth regions remain essentially identical to the original.
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=\linewidth]{imgs/convolutions/unsharp_1d_profile.png}
-  \caption{1D profile at row 120: (a)~original signal, (b)~1D Laplacian, (c)~overlay showing how sharpening amplifies transitions.}
-  \label{fig:1d-profile}
-\end{figure}
-
-To visualize the mechanism more clearly, Fig.~\ref{fig:1d-profile} shows a horizontal 1D intensity profile extracted at the middle row ($y = 120$), with the 1D Laplacian approximated by $[1,\,-2,\,1]$. At every intensity transition, the Laplacian produces a zero-crossing pattern with positive and negative lobes on either side. Subtracting this from the original causes the signal to ``overshoot'' at each edge: the bright side becomes brighter and the dark side becomes darker, while flat portions of the signal are left untouched. This is precisely the pointwise mechanism behind the contrast enhancement.
+\paragraph{Dynamic-range considerations.}
+Since the filter pushes pixels away from their local mean (Eq.~\eqref{eq:local_boost}), the output distribution necessarily becomes wider than the input. Near strong edges, the Laplacian response can be large, causing $f_{\text{out}}$ to exceed the $[0,255]$ range. Table~\ref{tab:hist-stats} quantifies this: before clipping, values range from $-609$ to $877$, and the standard deviation doubles from $65.90$ to $136.08$. After clipping to $[0,255]$, the extreme values accumulate at the boundaries (visible as a saturation peak at bin~$255$ in Fig.~\ref{fig:histograms}b), and the mean shifts slightly upward ($127.14 \to 129.68$) because clipping is asymmetric. The DC-gain-equals-one property ($\widehat{K}(0,0)=1$) guarantees that the mean is exactly preserved in the float domain ($127.14 \to 126.99$, the residual $0.15$ being a boundary effect); it is only the clipping step that introduces a bias.
 
 \begin{table}[!t]
 \centering
@@ -175,26 +220,41 @@ Std   & $65.90$  & $136.08$ & $89.58$  \\
 \begin{figure}[!t]
   \centering
   \includegraphics[width=\linewidth]{imgs/convolutions/histogram_comparison.png}
-  \caption{Histogram comparison: (a)~original (linear), (b)~sharpened clipped (linear) with saturation markers, (c)~sharpened clipped (log scale), (d)~sharpened float before clipping.}
+  \caption{Histogram comparison: (a)~original image, (b)~sharpened image after clipping to $[0,255]$.}
   \label{fig:histograms}
 \end{figure}
 
-To evaluate the hypotheses quantitatively, Table~\ref{tab:hist-stats} reports the intensity statistics and Fig.~\ref{fig:histograms} shows the histograms. Looking at the results, the standard deviation increases from $65.90$ to $89.58$ after clipping (a $35.9\,\%$ increase), which confirms that the distribution is indeed wider---the pixel values are more spread out, exactly as predicted. The mean is nearly preserved ($127.14$ vs $129.68$), consistent with the zero-DC-response property of the Laplacian; the small shift of about $2.5$ gray levels is explained by the asymmetric effect of clipping, which removes more negative outliers ($16.36\,\%$ of pixels saturated at $0$) than positive ones ($9.81\,\%$ at $255$), slightly biasing the mean upward.
+\paragraph{Takeaway.}
+$K$ enhances contrast because it is algebraically equivalent to the identity minus the discrete Laplacian ($K=\delta-L_4$). At the pixel level, this pushes each value away from its local mean, amplifying edges while leaving flat regions unchanged. The practical limitation is that strong edges can push values outside $[0,255]$, requiring either floating-point storage or clipping with the associated saturation artifacts.
 
-Before clipping, the sharpened values range from $-609$ to $877$ (Table~\ref{tab:hist-stats}), which shows that the Laplacian subtraction can push pixel values far outside the representable $[0,255]$ interval, especially near strong edges. Panel (d) of Fig.~\ref{fig:histograms} makes this visible: the full float-range histogram extends well beyond the dashed red lines that mark the $[0,255]$ boundaries. When these values are clamped, they accumulate at the boundaries, producing the saturation peaks visible in panel (b). The log-scale view in panel (c) helps see past these peaks and reveals that the body of the distribution follows a shape similar to the original but stretched, which is consistent with the increased standard deviation.
+\subsection{Gradient Filters (Sobel)}
 
-In summary, the kernel $K$ achieves contrast enhancement because its algebraic structure is that of unsharp masking: the identity component preserves the base brightness while the subtracted Laplacian amplifies local intensity differences around edges. The experimental results confirm the three hypotheses: edges are visually sharper, the histogram is wider, and the mean is approximately preserved. The side effect is that pixels near strong edges can exceed the dynamic range, causing saturation at $0$ and $255$ after clipping.
+In the previous parts, we applied convolution kernels to modify the image (enhancement using the Laplacian). Here we keep the same tool---convolution---but change the goal: instead of sharpening, we want to estimate local intensity variations by computing two derivative-like images, $I_x$ and $I_y$. These two maps can then be combined into a single edge-strength image through the gradient magnitude $\|\nabla I\|$.
+\[
+I_x = \frac{\partial I}{\partial x}, \qquad I_y = \frac{\partial I}{\partial y}.
+\]
+These two quantities form the gradient vector
+\[
+\nabla I = (I_x,\,I_y),
+\]
+which points toward the direction of maximum increase of intensity. Its magnitude,
+\[
+\|\nabla I\| = \sqrt{I_x^2 + I_y^2},
+\]
+is a simple measure of local contrast: it becomes large around edges and sharp transitions.
 
-\subsection{Gradient Computation and Display}
+\subsubsection{From derivatives to discrete filters}
 
-Whereas the previous subsection analyzed a second-order differential operator (the Laplacian $\nabla^{2}I$), we now turn to the first-order differential model. In the differential framework~\cite{manzanera_cours1}, the image is treated as a continuous function $f(x,y)$ and its local behavior is studied through its derivatives. At each point, the gradient vector $\nabla I = (I_x,\,I_y)$ points in the direction of maximum intensity change (orthogonal to the isophote), and its magnitude measures the rate of that change. The gradient is the fundamental building block of edge detection: edges correspond to loci where $\|\nabla I\|$ is large, since they separate regions of different intensity.
+In a digital image we only have samples $I[i,j]$ (pixels), so derivatives must be approximated. A basic idea is finite differences (e.g. $[-1\;\;1]$), but this is very sensitive to noise because it uses only two neighboring pixels.
 
-\subsubsection{Discrete Approximation via Sobel Kernels}
-
-For discrete images the partial derivatives must be approximated by finite differences computed through convolution. The simplest kernels are $[-1\;\;1]$ and $\left[\begin{smallmatrix}-1\\1\end{smallmatrix}\right]$, but these are very sensitive to noise because they act on a single-pixel baseline. As presented in~\cite{manzanera_cours1}, a standard improvement is to combine the derivative in one direction with a smoothing filter in the orthogonal direction. The Sobel operator implements this idea with the following $3\times3$ masks:
-
+A common improvement is to combine:
+\begin{itemize}
+\item a \textit{derivative} in one direction,
+\item with a \textit{smoothing} (low-pass) in the orthogonal direction.
+\end{itemize}
+This is exactly what the Sobel operator does. We use the standard $3\times 3$ kernels:
 \begin{equation}
-\label{eq:sobel_x}
+\label{eq:sobel_kernels}
 h_x =
 \begin{pmatrix}
 -1 & 0 & 1 \\
@@ -210,93 +270,70 @@ h_y =
 \end{pmatrix}.
 \end{equation}
 
-Each kernel is separable: $h_x$ can be factored as a column smoothing vector $[1,\,2,\,1]^{T}$ times a row derivative $[-1,\,0,\,1]$, and $h_y$ is its transpose. The smoothing component ($[1,\,2,\,1]$ is a binomial approximation to a Gaussian) attenuates noise in the direction perpendicular to the derivative~\cite{gonzalez_woods_dip}, producing edge maps that are thicker but better centered (zero-phase response) and less noisy than the raw $[-1\;\;1]$ difference.
+They are separable (up to a constant factor), for example
+\[
+h_x \propto
+\begin{pmatrix} 1 \\ 2 \\ 1 \end{pmatrix}
+\begin{pmatrix} -1 & 0 & 1 \end{pmatrix},
+\qquad
+h_y = h_x^{\top}.
+\]
+So we can read Sobel as: \textit{smooth with $[1,2,1]$} in the perpendicular direction, then \textit{differentiate with $[-1,0,1]$}. In practice this produces gradient maps that are less noisy than raw finite differences, while still reacting strongly at edges.
 
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=0.75\linewidth]{imgs/convolutions/gradient_kernels.png}
-  \caption{Sobel kernels $h_x$ (horizontal derivative) and $h_y$ (vertical derivative) with annotated coefficients.}
-  \label{fig:gradient-kernels}
-\end{figure}
+\subsubsection{Gradient components and magnitude}
 
-Fig.~\ref{fig:gradient-kernels} shows the two kernels with their annotated coefficient values. Note that both have zero-sum coefficients, which means their Fourier transforms vanish at the origin: a derivative kernel has no DC response, so a constant image produces zero output---consistent with the fact that a constant function has zero derivative everywhere.
-
-The gradient components and the Euclidean norm are then computed as:
+We compute the two components by filtering the image:
 \begin{equation}
-\label{eq:gradient_components}
-I_x = I * h_x, \qquad I_y = I * h_y,
+\label{eq:grad_components_conv}
+I_x[i,j] = (I * h_x)[i,j], \qquad I_y[i,j] = (I * h_y)[i,j],
 \end{equation}
+and then the gradient magnitude:
 \begin{equation}
-\label{eq:gradient_norm}
-\|\nabla I\| = \sqrt{I_x^{2} + I_y^{2}}.
+\label{eq:grad_norm}
+\|\nabla I[i,j]\| = \sqrt{I_x[i,j]^2 + I_y[i,j]^2}.
 \end{equation}
 
-In the implementation, both convolutions are performed with \texttt{cv2.filter2D} using \texttt{cv2.CV\_64F} as the output depth. This is the first and most critical precaution: if the default depth \texttt{-1} were used on a \texttt{uint8} or \texttt{float64}-clipped image, all negative gradient values would be silently clamped to zero, destroying half of the edge information. Since the Sobel kernels are antisymmetric, the output range is symmetric around zero; for the test image we measure $I_x \in [-879,\,730]$ and $I_y \in [-1012,\,974]$.
+In OpenCV, the filtering function behaves like a correlation (the kernel is not flipped). In this TP context, this does not change the usefulness of the result: it mainly affects the \emph{sign convention} of $I_x$ and $I_y$ depending on the chosen kernel orientation. What matters for edges is that strong transitions create large responses (and the magnitude $\|\nabla I\|$ is independent of the sign).
 
-\subsubsection{Gradient Components}
+\subsubsection{Why floating point matters (and how display can go wrong)}
+
+A practical detail is that $I_x$ and $I_y$ are \textbf{signed}: they contain both positive and negative values depending on whether the transition is dark-to-bright or bright-to-dark. Because of that, we should avoid computing the convolution in \texttt{uint8}. Otherwise, negative values are clipped to 0, and half of the information disappears.
+
+In our implementation we therefore compute the convolutions in floating point:
+\begin{itemize}
+\item either by converting the image to \texttt{float64} before filtering,
+\item or by explicitly forcing the output depth in \texttt{cv2.filter2D} (e.g. \texttt{cv2.CV\_64F}).
+\end{itemize}
+This guarantees that negative responses are preserved and that $\|\nabla I\|$ can exceed the usual $[0,255]$ range.
+
+\subsubsection{Visualization of signed components}
+
+Since $I_x$ and $I_y$ can be negative, their visualization needs a mapping that does not destroy the sign. Typical options are:
+\begin{enumerate}
+\item \textbf{Incorrect: naive clipping to $[0,255]$}. Negative values become 0, so one edge polarity vanishes.
+\item \textbf{Absolute value}. Displays edge strength but removes the sign (direction of transition).
+\item \textbf{Shift + rescale}. Map $[\min,\max]$ linearly to $[0,255]$ so that 0 becomes mid-gray.
+\item \textbf{Diverging colormap centered at 0 (recommended for interpretation)}. Use a symmetric range
+\[
+m = \max\left(|\min(I_x)|,\;|\max(I_x)|\right),
+\]
+\[
+\quad \text{and display } I_x \text{ in } [-m, +m],
+\]
+(and similarly for $I_y$). This makes positive/negative values comparable and avoids a misleading color dominance.
+\end{enumerate}
+
+For the magnitude $\|\nabla I\|$, values are non-negative, so a grayscale colormap is enough. However, since the maximum can be much larger than 255, we typically normalize \emph{only for display}. The raw values should be kept if we plan to compare gradients across images or apply consistent thresholds.
 
 \begin{figure}[!t]
   \centering
   \includegraphics[width=\linewidth]{imgs/convolutions/gradient_components.png}
-  \caption{Gradient analysis: (a)~original image, (b)~$I_x$ and (c)~$I_y$ with divergent colormap (red = positive, blue = negative), (d)~gradient norm $\|\nabla I\|$, (e)~gradient direction $\theta = \mathrm{atan2}(I_y,I_x)$, (f)~thresholded edges ($\|\nabla I\| > \mu + \sigma$).}
+  \caption{Gradient decomposition: (a)~original image, (b)~$I_x$ and (c)~$I_y$ shown with a diverging colormap (red~=~positive, blue~=~negative, white~=~zero), (d)~gradient magnitude $\|\nabla I\|$, (e)~gradient direction $\theta = \arg\nabla I$, (f)~binary edge map ($\|\nabla I\| > \mu+\sigma$).}
   \label{fig:gradient-components}
 \end{figure}
 
-Fig.~\ref{fig:gradient-components} presents a six-panel overview of the gradient decomposition applied to the test image. In panel~(b), the horizontal derivative $I_x$ highlights vertical edges: positive values (red) appear on transitions from dark to bright as the $x$ coordinate increases, while negative values (blue) mark the opposite transition. Panel~(c) shows $I_y$, which correspondingly highlights horizontal edges. Since the Sobel operator includes orthogonal smoothing, these edge maps are cleaner and better localized than what raw finite differences would produce.
+Fig.~\ref{fig:gradient-components} illustrates the gradient decomposition on the test image. As introduced in~\cite{manzanera_cours2}, the gradient vector $\nabla I$ encodes two fundamental pieces of local geometry: its \emph{norm} $\|\nabla I\|$ measures the local contrast (the rate of intensity change), while its \emph{argument} $\arg \nabla I$ gives the direction of steepest ascent, orthogonal to the isophote.
 
-The Euclidean norm $\|\nabla I\|$ (panel~d) combines both components into a single scalar measure of edge strength. It is always non-negative, so it can be displayed directly with a standard grayscale colormap. The gradient direction $\theta = \mathrm{atan2}(I_y,\,I_x)$ (panel~e) is shown with a circular (HSV) colormap, where the hue encodes the angle from $-\pi$ to $\pi$; this reveals the orientation of each edge in the image. Finally, panel~(f) shows a binary edge map obtained by thresholding the norm at $\mu + \sigma$ (where $\mu$ and $\sigma$ are the mean and standard deviation of $\|\nabla I\|$), giving a simple but effective visualization of the most salient contours.
+These properties are directly visible in the figure. In panel~(b), the horizontal component $I_x$ highlights \textbf{vertical edges}: positive values (red) appear where intensity increases from left to right, and negative values (blue) mark the opposite transition. Panel~(c) shows $I_y$, which correspondingly highlights \textbf{horizontal edges}. For instance, the strong blue and red bands along the flower petals in panel~(b) trace the vertical contours of those structures, while the horizontal top-to-bottom transitions that appear in the fence and the grass are captured in panel~(c).
 
-\begin{table}[!t]
-\centering
-\caption{Statistics of gradient components on the $240\times360$ test image.}
-\label{tab:gradient-stats}
-\begin{tabular}{lrrrr}
-\hline
-Component & Min & Max & Mean & Std \\
-\hline
-$I_x\;(\partial I/\partial x)$ & $-879$ & $730$  & $-3.66$  & $122.60$ \\
-$I_y\;(\partial I/\partial y)$ & $-1012$ & $974$ & $-1.02$  & $183.08$ \\
-$\|\nabla I\|$                 & $0$     & $1070$ & $146.64$ & $164.50$ \\
-\hline
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:gradient-stats} reports the numerical statistics. The means of $I_x$ and $I_y$ are close to zero, which is expected since the Sobel kernels have zero DC response and positive and negative transitions tend to balance over the entire image. The standard deviations ($122.60$ for $I_x$, $183.08$ for $I_y$) indicate that the image has somewhat stronger vertical intensity transitions than horizontal ones. The gradient norm reaches a maximum of $1070$, well above the $[0,255]$ range---this underlines the need for floating-point computation and careful normalization for display.
-
-\subsubsection{Display Precautions}
-
-Since $I_x$ and $I_y$ are signed quantities, displaying them correctly requires specific precautions. Fig.~\ref{fig:display-precautions} compares four strategies side by side for both components:
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=\linewidth]{imgs/convolutions/gradient_display_precautions.png}
-  \caption{Four display strategies for the signed gradient components $I_x$ (top row) and $I_y$ (bottom row): (a)~naive clipping to $[0,255]$ (incorrect), (b)~absolute value, (c)~shift and rescale, (d)~divergent colormap (recommended).}
-  \label{fig:display-precautions}
-\end{figure}
-
-\begin{enumerate}
-\item \textbf{Naive clipping to $[0,255]$} (column~a): all negative values are set to zero, so transitions in one direction are completely invisible. This is incorrect and would lead to the false conclusion that edges exist only in one direction of the intensity change. In the figure this manifests as images where roughly half the edges appear to be missing.
-
-\item \textbf{Absolute value $|I_x|$, $|I_y|$} (column~b): edge strength is preserved, but the sign---which encodes the direction of the intensity transition (dark-to-bright vs.\ bright-to-dark)---is lost. This is acceptable when only edge magnitude matters, but it discards useful orientation information.
-
-\item \textbf{Shift and rescale} (column~c): the full range $[\min,\,\max]$ is linearly mapped to $[0,255]$, so that zero maps to a mid-gray value. All information is preserved, and the result can be saved as a standard 8-bit image. The disadvantage is that the visual mapping between gray levels and physical quantities is not immediately intuitive.
-
-\item \textbf{Divergent colormap centered at zero} (column~d, recommended): a symmetric colormap such as \texttt{RdBu\_r} is used with \texttt{TwoSlopeNorm(vcenter=0)}, so that zero maps to white, positive values to red, and negative values to blue. This simultaneously preserves sign information, edge strength, and provides an intuitive reading of the gradient direction.
-\end{enumerate}
-
-The gradient norm $\|\nabla I\|$ is always non-negative, so a standard grayscale display with automatic or manual normalization suffices. No special precaution is required for the norm, only for the signed components.
-
-In summary, the two essential precautions for a correct display of gradient components are: (1)~using a floating-point output depth (\texttt{cv2.CV\_64F}) in the convolution to preserve negative values, and (2)~choosing a visualization strategy that does not discard or misrepresent the sign. The divergent colormap approach satisfies both requirements and is therefore the recommended method.
-
-\subsubsection{1D Profile Analysis}
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=\linewidth]{imgs/convolutions/gradient_1d_profile.png}
-  \caption{1D gradient profile at row 120: (a)~original intensity, (b)~horizontal gradient $I_x$ with positive/negative regions shaded, (c)~gradient norm $\|\nabla I\|$.}
-  \label{fig:gradient-1d-profile}
-\end{figure}
-
-To complement the 2D visualizations, Fig.~\ref{fig:gradient-1d-profile} shows a horizontal 1D profile extracted at the middle row ($y=120$). Panel~(a) displays the original intensity profile, where abrupt transitions between regions of different brightness are clearly visible. Panel~(b) shows the horizontal derivative $I_x$: each intensity transition produces a signed peak whose polarity indicates the direction of the change---positive (red shading) for dark-to-bright and negative (blue shading) for bright-to-dark. In flat regions, $I_x$ stays close to zero. Panel~(c) shows the gradient norm, which converts these signed peaks into positive peaks of edge strength, with the strongest responses at the locations of the sharpest transitions.
-
-This 1D view makes explicit the relationship between the first-order differential model and edge detection: the gradient operator acts as a high-pass filter that responds to intensity transitions, and the signed components preserve the directionality of each transition while the norm provides a direction-independent measure of edge strength.
+Panel~(d) combines both components into the scalar magnitude $\|\nabla I\|$: every edge appears bright regardless of its orientation, confirming that the norm acts as a direction-independent measure of local contrast. Panel~(e) displays the gradient direction $\theta = \mathrm{atan2}(I_y,\,I_x)$ using a circular (HSV) colormap; it directly corresponds to the quantity $\arg\nabla I$ from the course~\cite{manzanera_cours2}, and one can verify that edges in the same physical direction share the same hue. Finally, panel~(f) shows a simple binary edge map obtained by keeping only pixels where $\|\nabla I\| > \mu + \sigma$ (a heuristic threshold); this illustrates how the gradient magnitude can be used as a starting point for edge detection---a topic further developed in the course through the zero-crossings of the Laplacian and the Canny detector.
