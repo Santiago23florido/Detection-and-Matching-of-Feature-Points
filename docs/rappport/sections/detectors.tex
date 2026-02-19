@@ -1,0 +1,747 @@
+\section{Detectors}
+
+In the context of image and video analysis, it is often necessary
+to detect interest points, for example edges, corners, etc.
+This is important for matching tasks:
+comparing descriptors from two images and obtaining correspondences,
+estimating image transformations (alignment),
+performing tracking in videos from these interest points,
+and visual odometry to estimate camera motion.
+
+\subsection{Harris Interest Function}
+
+This is where the Harris function (or detector) comes in,
+which is ideal when speed and stability are required.
+However, with strong scale changes, for example when
+an object appears much larger or much smaller
+between different \emph{frames}, the Harris detector is less effective.
+
+The Harris interest function is based on assigning a value to each pixel. This value measures
+how much this pixel is an \emph{intersection}, that is, a \emph{corner}.
+
+Saying that a pixel is a corner means we look at how much it resembles the intersection of two edges.
+In other words, how much this pixel corresponds to a place where the image changes strongly in two
+perpendicular directions. This is useful, because with a small pixel window (the window $W$), we can estimate
+how much what we observe changes at the structure level.
+
+Intuitively, if we move the window $W$ slightly around a pixel, we observe:
+\begin{itemize}
+    \item \textbf{Flat region (no texture)} : the window changes very little $\rightarrow$ this is not a corner.
+    \item \textbf{Edge} : the window changes little when moving \emph{along} the edge, but changes a lot
+    when \emph{crossing} it.
+    \item \textbf{Corner} : the window changes a lot in almost any direction.
+\end{itemize}
+
+What Harris does is use the gradients $I_x$ and $I_y$ to know how much intensity changes
+ along $x$ and along $y$.
+If around the pixel there is a strong change in only one direction, we are mostly on an edge; but if
+the strong changes are in two
+directions, we call it a corner. Thus, $\Theta$, the Harris response, is defined pixel by pixel: the larger
+$\Theta$ is, the more the pixel is a \emph{corner}.
+
+In the Harris detector, the interest function is defined as:
+$$
+\Theta = R = \det(M) - k\,(\operatorname{trace}(M))^2
+$$
+
+Where $k$ is an empirical penalization value: the larger it is, the stricter the criterion,
+so fewer corners are detected. $M$ is the structure matrix obtained from the gradients
+$I_{x}$ and $I_{y}$, computed after Gaussian smoothing of the image, with parameter $\sigma$ that controls
+the smoothing level (noise reduction and fine-detail attenuation). The matrix $M$ is defined as:
+
+$$
+M(x,y)=
+$$
+
+$$
+=\sum_{(u,v)\in W} w(u,v)
+\begin{pmatrix}
+I_x(u,v)^2 & I_x(u,v)I_y(u,v)\\
+I_x(u,v)I_y(u,v) & I_y(u,v)^2
+\end{pmatrix}
+$$
+
+Where $w(u,v)$ is a weighting function that gives more importance to pixels close to the center
+of window $W$. Thus, the sum is computed over a window around the analyzed pixel.
+
+\begin{itemize}
+  \item $I_x^2$ measures how much the image changes in the horizontal direction.
+  \item $I_y^2$ measures how much the image changes in the vertical direction.
+  \item $I_x I_y$ measures the correlation between these two variations.
+\end{itemize}
+
+And regarding the eigenvalues of $M$: if both are large, then $R$ is large and the pixel is a
+\emph{corner}. If one is large and the other small, then $R$ becomes negative and the pixel corresponds to an
+\emph{edge}. If both are small, then $R$ is small and the pixel is a flat region.
+
+Finally, the determinant of $M$ corresponds to the product of the eigenvalues, while the trace corresponds to their
+sum. But the trace does not distinguish edges from corners very well, which is why it is penalized (with the
+term in $k$). The trace mostly measures global change, while the determinant highlights
+a true corner better.
+
+Moreover, this interest function is computed at a single scale: we use one smoothing level
+and one window size to compute $M$.
+
+\subsection{Morphological Dilation}
+
+In image processing, we often seek to obtain a
+representative value of a neighborhood.
+In the case of morphological dilation, this value corresponds,
+for each pixel, to the maximum in that neighborhood.
+This neighborhood is defined by a structuring element,
+for example a $3 \times 3$ window.
+
+In the Harris case, this morphological dilation is used to
+detect local maxima and then perform non-maximum suppression.
+In other words, the goal is to keep the strongest peaks (the corners).
+
+In the code of \texttt{Harris.py},
+the variable \texttt{se} defines the window/neighborhood as a matrix
+of ones of size \texttt{d\_maxloc}, with \texttt{d\_maxloc = 3}:
+
+\begin{verbatim}
+d_maxloc = 3
+se = np.ones(
+    (d_maxloc, d_maxloc), np.uint8
+)
+\end{verbatim}
+
+Then, the following instruction makes each pixel take the value
+of the largest value in its window:
+
+\begin{verbatim}
+Theta_dil = cv2.dilate(Theta, se)
+\end{verbatim}
+
+After that, with the following instruction, we perform a pixel-by-pixel
+comparison:
+
+\begin{verbatim}
+Theta_maxloc[Theta < Theta_dil] = 0.0
+\end{verbatim}
+
+If the original value is different from the dilated value, then this pixel
+was not a local maximum, so its value is removed (set to zero).
+Otherwise, the value is kept because it is indeed a local maximum.
+
+Finally, we apply a relative threshold to remove maxima that are too weak:
+
+\begin{verbatim}
+Theta_maxloc[
+    Theta < seuil_relatif * Theta.max()
+] = 0.0
+\end{verbatim}
+
+\subsection{Results}
+
+The script \texttt{Harris.py} was run 50 times with \texttt{-stats}
+on image \texttt{Graffiti0.png}. The following measurements were obtained.
+The results below were measured with the following parameters:
+
+\begin{verbatim}
+SUM_WINDOW_SIZE = 5
+HARRIS_K = 0.04
+MAXLOC_NEIGHBORHOOD_SIZE = 3
+RELATIVE_THRESHOLD = 0.01
+\end{verbatim}
+
+\begin{itemize}
+    \item Image size (grayscale) : $320 \times 400$.
+    \item Image type (grayscale) : \texttt{float64}.
+    \item Image size (color) : $320 \times 400 \times 3$.
+    \item Image type (color) : \texttt{uint8}.
+\end{itemize}
+
+\begin{table}[!t]
+    \centering
+    \caption{Statistics over 50 runs of the Harris detector}
+    \label{tab:harris_stats}
+    \begin{tabular}{lc}
+        \hline
+        Metric & Value \\
+        \hline
+        Mean time [s] & 0.003224673 \\
+        Time variance [s$^2$] & 0.000002632168 \\
+        Time standard deviation [s] & 0.001622396 \\
+        Mean cycles/pixel [cpp] & 25.192756 \\
+        Cycles/pixel variance [cpp$^2$] & 160.654768461 \\
+        Cycles/pixel standard deviation [cpp] & 12.674966 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\linewidth]{../../results/harris_points.png}
+    \caption{Visualization of interest points detected by Harris on \texttt{Graffiti0.png}.}
+    \label{fig:harris_points}
+\end{figure}
+
+\subsection{Parametric Analysis of the Harris Detector}
+
+This parametric study was conducted with command
+\texttt{python Harris.py -stats 50 -plots}. The sample corresponds to
+50 runs of Harris computation for each tested value.
+During each sweep, the other parameters remain fixed to:
+\texttt{SUM\_WINDOW\_SIZE = 5}, \texttt{HARRIS\_K = 0.04},
+\texttt{MAXLOC\_NEIGHBORHOOD\_SIZE = 3},
+\texttt{RELATIVE\_THRESHOLD = 0.01}.
+
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../results/plots/harris/cpp_vs_sum_window_size.png}
+        \vspace{2mm}
+        \textbf{(a)} Cycles/pixel vs \texttt{SUM\_WINDOW\_SIZE}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../results/plots/harris/time_vs_sum_window_size.png}
+        \vspace{2mm}
+        \textbf{(b)} Mean time vs \texttt{SUM\_WINDOW\_SIZE}
+    \end{minipage}
+    \caption{Impact of \texttt{SUM\_WINDOW\_SIZE} on computational cost.}
+    \label{fig:harris_sum_window_analysis}
+\end{figure}
+
+When \texttt{SUM\_WINDOW\_SIZE} increases, mean time and cycles/pixel
+increase clearly, because local convolution is more expensive.
+From a detection point of view, a large window stabilizes the structure measure
+(less sensitive to noise), but tends to smooth fine details and reduce
+the number of weak detected corners. Conversely, a small window captures more
+micro-variations (more potential corners), at the cost of stronger sensitivity
+to noise and therefore a higher risk of false positives.
+
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../results/plots/harris/cpp_vs_harris_k.png}
+        \vspace{2mm}
+        \textbf{(a)} Cycles/pixel vs \texttt{HARRIS\_K}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../results/plots/harris/time_vs_harris_k.png}
+        \vspace{2mm}
+        \textbf{(b)} Mean time vs \texttt{HARRIS\_K}
+    \end{minipage}
+    \caption{Impact of \texttt{HARRIS\_K} on computational cost.}
+    \label{fig:harris_k_analysis}
+\end{figure}
+
+The variation of \texttt{HARRIS\_K} changes the cost only slightly (same computation pipeline,
+same main operators), which is consistent with the time/CPP curves.
+However, the effect on corner selection is important:
+a low \texttt{HARRIS\_K} is more permissive (more points kept, including
+ambiguous points near edges), while a high \texttt{HARRIS\_K}
+reinforces trace penalization, so selection becomes stricter
+and the number of corners tends to decrease, with better geometric stability.
+
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../results/plots/harris/cpp_vs_maxloc_neighborhood_size.png}
+        \vspace{2mm}
+        \textbf{(a)} Cycles/pixel vs NMS neighborhood size
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../results/plots/harris/time_vs_maxloc_neighborhood_size.png}
+        \vspace{2mm}
+        \textbf{(b)} Mean time vs NMS neighborhood size
+    \end{minipage}
+    \caption{Impact of NMS neighborhood size on computational cost.}
+    \label{fig:harris_maxloc_analysis}
+\end{figure}
+
+When \texttt{MAXLOC\_NEIGHBORHOOD\_SIZE} increases, the cost increases
+moderately, because dilation/non-max suppression scans a larger neighborhood.
+This parameter mainly acts on final point density:
+a large neighborhood makes non-maximum suppression more aggressive
+(fewer corners, better spacing, less redundancy), while a small neighborhood
+lets more nearby local maxima pass
+(more corners, but more spatial redundancy).
+
+In summary, there is a classic tradeoff between sensitivity and robustness:
+increasing detail sensitivity often produces more corners, but also
+more noise and false corners; reinforcing robustness reduces false positives,
+but may remove weak corners useful for some scenes.
+For this image set, the baseline configuration
+(\texttt{SUM\_WINDOW\_SIZE} = 5, \texttt{HARRIS\_K} = 0.04,
+NMS neighborhood = 3) remains a reasonable compromise.
+
+\subsection{Harris Computation at Multiple Scales}
+
+In the current implementation of \texttt{Harris.py}, the detector is
+single-scale: we use fixed Gaussian smoothing
+(\texttt{sigma = 1.0}) as well as a fixed summation window to build
+the structure matrix.
+This approach works well for a given scale, but it loses
+robustness when the apparent size of objects varies between images.
+
+\textbf{Note.} Parameter \(\sigma\) represents the Gaussian smoothing
+level: the larger \(\sigma\), the stronger the smoothing, and the more
+fine image details are attenuated (or even erased).
+
+To perform Harris computation at multiple scales, we work in
+scale-space \((x,y,\sigma)\):
+\begin{enumerate}
+    \item Define a set of scales \(\sigma_1,\sigma_2,\dots,\sigma_n\)
+    (or build a Gaussian pyramid).
+    \item For each \(\sigma_i\), compute \(I_x\), \(I_y\), the matrix
+    \(M_{\sigma_i}\), then the Harris response \(R_{\sigma_i}\).
+    \item Normalize responses across scales to make them comparable.
+    \item Apply 2D non-maximum suppression at each scale,
+    then extend it to 3D:
+    a point is kept if it is maximal in its spatial neighborhood and also
+    relative to \(\sigma_{i-1}\), \(\sigma_i\), and \(\sigma_{i+1}\).
+    \item Apply a threshold, then reproject the points into the original image
+    while keeping their characteristic scale.
+\end{enumerate}
+
+The main tradeoffs are the following:
+\begin{itemize}
+    \item More scales: better robustness to size changes, but
+    higher computational cost.
+    \item Small scales: more details and potentially more corners,
+    but also stronger sensitivity to noise.
+    \item Large scales: more stable detection, but risk of losing
+    fine or weak corners.
+\end{itemize}
+
+Finally, the link with minimum distance \(r\) between interest points is the following.
+To guarantee that two detected points stay separated by at least \(r\) pixels,
+we can use non-maximum suppression with radius \(r\), or
+ANMS (\emph{Adaptive Non-Maximum Suppression}).
+This reduces spatial redundancy and improves corner distribution
+in the image.
+
+Instead of using one fixed radius everywhere, ANMS assigns to each
+candidate corner an adaptive radius \(r_i\), defined as the distance to the closest
+stronger corner.
+That is:
+\begin{itemize}
+    \item a very strong, isolated corner gets a large radius \(r_i\);
+    \item a weak corner near a stronger corner gets a small radius.
+\end{itemize}
+
+Then, candidates are sorted by \(r_i\), and points with the
+largest radii are kept.
+This way, we keep corners that are both reliable (good Harris response) and well
+distributed spatially, which is often preferable to a very dense
+local selection in a small region of the image.
+
+\section{Feature Methods: ORB and KAZE}
+
+Within a computer vision pipeline, a detector seeks interest points that satisfy three main properties.
+
+\begin{itemize}
+    \item \textbf{Repeatability}: interest points should appear again and remain meaningful even if the image 
+    undergoes transformations such as rotation, scale changes, or mild illumination variations.
+    \item \textbf{Good localization}: the $(x,y)$ position of the points should be stable and estimable with 
+    precision.
+    \item \textbf{Informativeness}: points should be associated with corners, edges, or regions with local structure.
+\end{itemize}
+
+From this, a typical pipeline consists of converting the image to grayscale (or working per color channel), 
+detecting interest points with algorithms such as Harris, ORB, or KAZE, associating descriptors to each interest 
+point (a vector that summarizes the local neighborhood), matching descriptors (e.g., with a nearest-neighbor 
+approach), filtering incorrect or undesired matches, and using the remaining correspondences for the target task 
+(pose estimation, tracking, etc.).
+
+ORB and KAZE are presented as two alternatives; their differences mainly come from robustness under image changes, 
+descriptor discriminability, and computational cost. Since both include a detector and a descriptor, they are often 
+referred to as \emph{feature methods}.
+
+\subsection{ORB}
+
+ORB stands for \emph{Oriented FAST and Rotated BRIEF} and is a good choice when we need speed (especially for 
+real-time), a compact binary descriptor that is fast to compare, and reasonable robustness to in-plane rotations.
+
+These advantages come from using the Hamming distance for comparisons (an XOR operation followed by a bit count). 
+This is cheaper than comparing floating-point vectors with an $L_2$ norm (As in Kaze).
+
+Typical applications include tracking, SLAM (Simultaneous Localization and Mapping), approximate matching, 
+and embedded scenarios.
+
+Some disadvantages are that, because it is very fast and relies on binary comparisons, it may be less discriminative 
+and can become ambiguous in repetitive patterns, and it is less robust under strong viewpoint changes. In addition, 
+BRIEF-style comparisons can be sensitive to blur and noise, and scale invariance depends on how the image pyramid is 
+configured.
+
+\subsubsection{ORB Principle - Algorithm}
+
+The ORB detector performs the following steps:
+
+\begin{enumerate}
+    \item Image pyramid (scale):
+    \begin{itemize}
+        \item Build an image pyramid with multiple scale levels.
+        \item Detect corners at each level.
+    \end{itemize}
+
+    \item FAST detection:
+    \begin{itemize}
+        \item For a candidate pixel $p$, consider a circle of 16 pixels around it.
+        \item With a threshold $t$, $p$ is declared a ``corner'' if there exists a contiguous arc of pixels 
+        significantly brighter or significantly darker than $p$. A simplified view is:
+        $$
+        \text{bright: } I(x) \ge I(p) + t,
+        \qquad
+        \text{dark: } I(x) \le I(p) - t.
+        $$
+        Then, $p$ is a corner if a sufficiently long contiguous set of ``bright'' pixels (or of ``dark'' pixels) 
+        exists on the circle.
+    \end{itemize}
+
+    \item Select the best $N$ points:
+    \begin{itemize}
+        \item FAST yields many candidates.
+        \item ORB keeps the best ones according to a score (Harris or FAST score), up to \texttt{nfeatures}.
+    \end{itemize}
+
+    \item Assign orientation:
+    \begin{itemize}
+        \item FAST does not provide an orientation; ORB estimates an angle using the intensity centroid of the patch.
+        \item With raw moments $m_{10}$ and $m_{01}$, the orientation is:
+        $$
+        m_{10} = \sum x\,I(x,y),
+        \qquad
+        m_{01} = \sum y\,I(x,y),
+        $$
+        $$
+        \theta = \operatorname{atan2}(m_{01}, m_{10}).
+        $$
+    \end{itemize}
+
+    \item Rotated BRIEF descriptor (rBRIEF):
+    \begin{itemize}
+        \item BRIEF builds bits by comparing the intensity of pairs of points in the patch: 
+        $\tau(p;x,y)=1$ if $p(x) < p(y)$, else $0$.
+        \item To be robust to rotation, ORB rotates the sampling pattern according to $\theta$ 
+        (``steered BRIEF'').
+        \item The result is a binary descriptor (e.g., 256 bits).
+    \end{itemize}
+
+    \item Efficient matching:
+    \begin{itemize}
+        \item Since the descriptor is binary, it is compared with the Hamming distance (number of differing bits), which is computationally efficient.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{KAZE}
+
+KAZE is a feature method that is generally more robust under strong scale changes, moderate geometric 
+deformations, and texture/noise variations where preserving edges is beneficial.
+
+KAZE builds a nonlinear scale space (edge-preserving diffusion) and detects Hessian-type points 
+(blobs / stable regions).
+
+A scale space can be understood as representing the image at different levels of detail (e.g., as
+ when applying Gaussian filtering). ``Nonlinear'' here means that the smoothing is not uniform: it depends on the 
+ local image content, which helps preserve edges.
+
+Hessian-type points correspond to local extrema of a second-order response; they tend to highlight 
+\emph{blobs}, i.e., compact regions whose intensity changes with a consistent curvature in two directions. 
+Intuitively, a blob looks like a local ``bump'' rather than a long edge, and this can be more stable under
+ moderate viewpoint changes.
+
+Another advantage is that the descriptor (M-SURF in OpenCV's KAZE) is a floating-point vector built 
+from sums of derivatives and typically compared with an $L_2$ distance; it is often more discriminative 
+than a simple binary descriptor such as ORB's, at the cost of higher computational effort.
+
+\subsubsection{KAZE Principle - Algorithm}
+
+The KAZE detector performs the following steps:
+
+\begin{enumerate}
+    \item Build the nonlinear scale space (diffusion):
+    \begin{itemize}
+        \item Generate a family of smoothed images at different scales, using a diffusion process that depends on local image content (edge-preserving).
+    \end{itemize}
+
+    \item Compute a Hessian-type response at each scale:
+    \begin{itemize}
+        \item At each scale level, compute second-order derivatives and evaluate a response such as a (normalized) Hessian determinant:
+        $$
+        \det(H) = L_{xx}L_{yy} - L_{xy}^2.
+        $$
+        \item Intuitively, a high response indicates a stable \emph{blob}-like structure.
+    \end{itemize}
+
+    \item Search for extrema in $(x,y,\sigma)$ (multi-scale detection):
+    \begin{itemize}
+        \item Search local maxima/minima not only in the image (spatial neighborhood) but also across neighboring scales.
+        \item Points that survive this selection are considered repeatable keypoints with a characteristic scale.
+    \end{itemize}
+
+    \item Refine localization and filter candidates:
+    \begin{itemize}
+        \item Refine the position of the extremum (better localization) and remove unstable/weak candidates according to the detector threshold (e.g., \texttt{threshold} in OpenCV).
+        \item This step controls the final number of points and their stability.
+    \end{itemize}
+
+    \item Assign orientation (unless using \texttt{upright} mode):
+    \begin{itemize}
+        \item If \texttt{upright = False}, KAZE estimates a dominant orientation around the keypoint (SURF-like derivatives).
+        \item This provides rotation invariance; if \texttt{upright = True}, the orientation step is skipped for speed, but rotation invariance is lost.
+    \end{itemize}
+
+    \item Compute the descriptor (M-SURF over the nonlinear scale space):
+    \begin{itemize}
+        \item Build a floating-point descriptor by integrating derivative responses over subregions around the keypoint.
+    \end{itemize}
+
+    \item Matching (when used in a full pipeline):
+    \begin{itemize}
+        \item KAZE descriptors are typically compared with an $L_2$ distance (in contrast to ORB, which uses Hamming).
+        \item This can improve matching quality in some cases, but it increases the computational cost of matching.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{ORB vs KAZE Comparison}
+
+\begin{table}[!t]
+    \centering
+    \caption{ORB vs KAZE comparison}
+    \label{tab:orb_vs_kaze}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.28\linewidth} p{0.30\linewidth} p{0.30\linewidth}}
+        \hline
+        \textbf{Aspect} & \textbf{ORB} & \textbf{KAZE} \\
+        \hline
+        Descriptor type & Binary & Floating point (real) \\
+        Typical matching distance & Hamming & $L_2$ \\
+        Speed & Very high & Medium / low (vs ORB) \\
+        Memory per descriptor & Low & Higher \\
+        In-plane rotation & Good (orientation + rotated BRIEF) & Good if \texttt{upright=False} \\
+        Scale & Depends on pyramid (\texttt{nlevels}, \texttt{scaleFactor}) & Intrinsic multiscale (nonlinear) \\
+        Viewpoint (affine/projective) & Limited & Often behaves better under moderate changes \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\subsection{ORB Parameters}
+
+In OpenCV (\texttt{cv2.ORB\_create(...)}), the most important parameters and their practical effect are summarized in Table~\ref{tab:orb_params}.
+
+\begin{table}[!t]
+    \centering
+    \caption{Main ORB parameters in OpenCV and their practical effect.}
+    \label{tab:orb_params}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.18\linewidth} p{0.34\linewidth} p{0.42\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{What it controls} & \textbf{Practical effect (typically when increased)} \\
+        \hline
+        \texttt{nfeatures} & Maximum number of retained keypoints & More points (more coverage) and more runtime; may include weaker points \\
+        \texttt{scaleFactor} & Scale factor between pyramid levels & Levels become farther apart (greater scale sampling); often faster but less precise in scale \\
+        \texttt{nlevels} & Number of pyramid levels & Better scale coverage, higher computational cost \\
+        \texttt{fast} \texttt{Threshold} & Threshold $t$ in the FAST segment test & Fewer corners (stricter detection); often fewer false positives, but weak points can be lost \\
+        \texttt{scoreType} & Corner ranking score (Harris vs FAST score) & Harris is usually more stable (slightly higher cost) than the pure FAST score \\
+        \texttt{edge} \texttt{Threshold} & Border margin where features are suppressed & Avoids keypoints too close to the border; can remove useful boundary points \\
+        \texttt{patchSize} & Patch size for orientation/descriptor & Larger patch: more context (potentially more robust), higher cost \\
+        \texttt{WTA\_K} & Number of points per BRIEF test ($2$, $3$, or $4$) & Changes descriptor statistics/discriminability; requires the appropriate matching norm \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\noindent For reference, Table~\ref{tab:orb_defaults} reports OpenCV's default values for the same parameters.
+\begin{table}[!t]
+    \centering
+    \caption{OpenCV default values for main ORB parameters.}
+    \label{tab:orb_defaults}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.5\linewidth} p{0.50\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{OpenCV default value} \\
+        \hline
+        \texttt{nfeatures} & \texttt{500} \\
+        \texttt{scaleFactor} & \texttt{1.2} \\
+        \texttt{nlevels} & \texttt{8} \\
+        \texttt{fastThreshold} & \texttt{20} \\
+        \texttt{scoreType} & \texttt{HARRIS\_SCORE} \\
+        \texttt{edgeThreshold} & \texttt{31} \\
+        \texttt{patchSize} & \texttt{31} \\
+        \texttt{WTA\_K} & \texttt{2} \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\textbf{Direct relation to \texttt{Features\_Detect.py}.} In that code, ORB is called as follows:
+
+\begin{verbatim}
+# ORB
+cv2.ORB_create(nfeatures=250, 
+    scaleFactor=2, nlevels=3)
+\end{verbatim}
+
+This choice has clear effects:
+\begin{itemize}
+    \item \texttt{nfeatures=250} (lower than the default $500$): forces fewer points. Expected effect: fewer drawn keypoints and less computation, but less coverage of the scene.
+    \item \texttt{scaleFactor=2} (higher than the default $1.2$): creates a ``coarser'' pyramid. Expected effect: fewer effective intermediate scales, potentially lower repeatability under small scale changes, but faster processing.
+    \item \texttt{nlevels=3} (lower than the default $8$): evaluates fewer scales. Expected effect: lower robustness to scale changes, lower cost.
+\end{itemize}
+
+\subsection{KAZE Parameters}
+
+In OpenCV (\texttt{cv2.KAZE\_create(...)}), the most important parameters and their 
+practical effect are summarized in Table~\ref{tab:kaze_params}.
+
+\begin{table}[!t]
+    \centering
+    \caption{Main KAZE parameters in OpenCV and their practical effect.}
+    \label{tab:kaze_params}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.16\linewidth} p{0.34\linewidth} p{0.37\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{What it controls} & \textbf{Practical effect (typically when increased / enabled)} \\
+        \hline
+        \texttt{threshold} & Detector response threshold & Stricter detection: fewer keypoints, but stronger and often more stable ones \\
+        \texttt{nOctaves} & Scale range (octaves) & Wider scale range, higher computational cost \\
+        \texttt{nOctave} \texttt{Layers} & Sub-levels per octave & Finer scale sampling, higher computational cost \\
+        \texttt{upright} & Whether orientation is computed & \texttt{True}: faster but loses rotation invariance; \texttt{False}: more robust to rotation \\
+        \texttt{diffu} \texttt{-sivity} & Diffusion type (edge-preserving) & Changes the smoothing/edge-preservation tradeoff, affecting keypoint distribution and stability \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\noindent For reference, Table~\ref{tab:kaze_defaults} reports OpenCV's default values for the same parameters.
+
+\begin{table}[!t]
+    \centering
+    \caption{OpenCV default values for main KAZE parameters.}
+    \label{tab:kaze_defaults}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.5\linewidth} p{0.4\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{OpenCV default value} \\
+        \hline
+        \texttt{upright} & \texttt{False} \\
+        \texttt{threshold} & \texttt{0.001} \\
+        \texttt{nOctaves} & \texttt{4} \\
+        \texttt{nOctaveLayers} & \texttt{4} \\
+        \texttt{diffusivity} & \texttt{2} \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\noindent \textbf{Note.} As stated above KAZE detects extrema in $(x,y,\text{scale})$ using a Hessian-based response computed on the nonlinear scale space. A common simplified response is the normalized Hessian determinant:
+
+\begin{equation}
+R(\sigma)=\sigma^2\left(L_{xx}L_{yy}-L_{xy}^2\right),
+\end{equation}
+where $L_{xx}$, $L_{yy}$, and $L_{xy}$ are second derivatives at scale $\sigma$.
+
+\textbf{Direct relation to \texttt{Features\_Detect.py}.} In that code, KAZE is called as follows:
+
+\begin{verbatim}
+# KAZE
+cv2.KAZE_create(upright=False,
+    threshold=0.001,
+    nOctaves=4,
+    nOctaveLayers=4,
+    diffusivity=2)
+\end{verbatim}
+
+This choice has clear effects:
+\begin{itemize}
+    \item \texttt{upright=False}: KAZE computes a dominant orientation per keypoint. Expected effect: better rotation invariance, at higher cost.
+    \item \texttt{threshold=0.001}: controls how many keypoints pass the detector threshold. Expected effect: lowering it yields more points (including weaker ones); increasing it yields fewer but more stable points.
+    \item \texttt{nOctaves=4} and \texttt{nOctaveLayers=4}: determine the explored scale range and scale sampling density. Expected effect: more octaves/layers increases multiscale coverage but also increases runtime.
+    \item \texttt{diffusivity=2}: selects a diffusion family. Expected effect: changes the balance between intra-region smoothing and edge preservation, affecting repeatability and localization.
+\end{itemize}
+
+
+\subsection{Results}
+
+The script \texttt{Features\_Detect.py} was executed with ORB and KAZE on
+\texttt{torb\_small1.png} and \texttt{torb\_small2.png}, using the parameter
+settings described in the previous subsections.
+Each timing statistic was computed from a sample of 50 runs per method.
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\linewidth]{../../results/method_features/ORB/detected_keypoints.png}
+    \caption{ORB keypoints detected on the test image pair.}
+    \label{fig:orb_detected_keypoints}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\linewidth]{../../results/method_features/KAZE/detected_keypoints.png}
+    \caption{KAZE keypoints detected on the test image pair.}
+    \label{fig:kaze_detected_keypoints}
+\end{figure}
+
+\begin{table}[!t]
+    \centering
+    \caption{ORB timing statistics over 50 runs.}
+    \label{tab:orb_timing_stats}
+    \begin{tabular}{lc}
+        \hline
+        Metric & Value \\
+        \hline
+        Mean time [s] & 0.002083 \\
+        Time variance [s$^2$] & $2.962301 \times 10^{-7}$ \\
+        Time standard deviation [s] & 0.000544 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[!t]
+    \centering
+    \caption{KAZE timing statistics over 50 runs.}
+    \label{tab:kaze_timing_stats}
+    \begin{tabular}{lc}
+        \hline
+        Metric & Value \\
+        \hline
+        Mean time [s] & 0.176525 \\
+        Time variance [s$^2$] & $4.627195 \times 10^{-4}$ \\
+        Time standard deviation [s] & 0.021511 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Analysis of results}
+
+From the results in Figs.~\ref{fig:orb_detected_keypoints}--\ref{fig:kaze_detected_keypoints} 
+and Tables~\ref{tab:orb_timing_stats}--\ref{tab:kaze_timing_stats}, we have :
+
+\begin{itemize}
+    \item \textbf{KAZE is significantly slower than ORB.}
+    The mean processing time for ORB is $0.002083\,$s (Table~\ref{tab:orb_timing_stats}), while for KAZE 
+    it is $0.176525\,$s (Table~\ref{tab:kaze_timing_stats}). KAZE is about $84.7\times$ slower in this experiment.
+    This is consistent with the internal cost of each method: ORB relies on FAST-type tests on an image pyramid (simple intensity comparisons), whereas KAZE constructs a nonlinear scale space (edge-preserving diffusion) and evaluates Hessian-type responses across scales, which requires substantially heavier computations.
+
+    \item \textbf{ORB keypoint circles appear larger than KAZE circles (scale vs ``precision'').}
+    In our visualization, keypoints are drawn with rich information (position, scale, and orientation), meaning the circle radius is proportional to the keypoint \emph{size} (its detected scale).
+    ORB uses a discrete pyramid and assigns scales tied to pyramid levels (and to the patch/descriptor size), which can lead to larger and more quantized circles, especially with a coarse pyramid (\texttt{scaleFactor=2}, \texttt{nlevels=3}).
+    KAZE, on the other hand, detects extrema in a (nonlinear) scale space and typically yields a characteristic scale that is more smoothly related to the local structure, which often results in smaller circles.
+    Therefore, smaller circles do not automatically mean ``more precise localization''; they mainly indicate that the keypoints are selected at smaller characteristic scales, although KAZE can indeed appear more tightly localized in many cases due to its scale-space formulation and refinement.
+
+    \item \textbf{Repeatability across the two frames is visually consistent.}
+    Even though the scene changes between \texttt{torb\_small1.png} and \texttt{torb\_small2.png}, the detections remain attached to the same stable structures (corners and textured regions) in both figures.
+    This visual consistency is an important qualitative indicator of repeatability, which is precisely what enables reliable matching or tracking between frames.
+
+    \item \textbf{Additional remarks (stability and distribution).}
+    KAZE also shows a much larger timing variance and standard deviation (Table~\ref{tab:kaze_timing_stats}) than ORB (Table~\ref{tab:orb_timing_stats}), which is expected for a heavier multi-scale diffusion-based computation whose cost can be more sensitive to image content and the number of detected candidates.
+    Finally, it is worth remembering that ORB explicitly caps the number of returned points with \texttt{nfeatures}, while KAZE is mainly controlled by \texttt{threshold}; this can affect the density and spatial distribution of keypoints, which in turn impacts how well the points cover the scene for downstream geometric estimation.
+\end{itemize}

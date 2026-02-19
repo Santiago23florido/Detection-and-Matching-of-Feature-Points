@@ -4,37 +4,54 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{graphicx}
+\usepackage{float}
 \usepackage{url}
+
+% Reduce excessive vertical gaps around floats (tables/figures).
+\setlength{\textfloatsep}{8pt plus 1pt minus 2pt}
+\setlength{\floatsep}{8pt plus 1pt minus 2pt}
+\setlength{\intextsep}{8pt plus 1pt minus 2pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{2pt}
 
 \begin{document}
 
-\title{Implémentation du jeu Hex via la Programmation Orientée Objet et stratégies de décision en C++}
+\title{Robust Image Matching with Local Features}
 
 \author{
-    \IEEEauthorblockN{1\textsuperscript{st} Jair Anderson Vasquez Torres}
+    \IEEEauthorblockN{1\textsuperscript{st} Santiago Florido Gomez}
     \IEEEauthorblockA{\textit{Ingénieur Degree Programme STIC} \\
     \textit{ENSTA Paris}\\
     Paris, France \\
-    jair-anderson.vasquez@ensta.fr}
+    santiago.florido@ensta.fr}
     \and
-    \IEEEauthorblockN{2\textsuperscript{nd} Santiago Florido Gomez}
+    \IEEEauthorblockN{2\textsuperscript{nd} Javier Andres Tarazona Jimenez}
     \IEEEauthorblockA{\textit{Ingénieur Degree Programme STIC} \\
     \textit{ENSTA Paris}\\
     Paris, France \\
-    santiago.florido@ensta-paris.fr}
+    javier-andres.tarazona@ensta.fr}
+    \and
+    \IEEEauthorblockN{3\textsuperscript{rd} Santiago Florido Gomez}
+    \IEEEauthorblockA{\textit{Ingénieur Degree Programme STIC} \\
+    \textit{ENSTA Paris}\\
+    Paris, France \\
+    santiago.florido@ensta.fr}
 }
 
 \maketitle
 
 \begin{abstract}
-Ce projet implémente en C++ un système complet pour le jeu Hex, conçu principalement comme un exercice de Programmation Orientée Objet. La solution organise le domaine du jeu au moyen de classes qui encapsulent le plateau, l’état, les coordonnées et les règles, permettant la génération de coups légaux et la vérification de victoire au moyen d’un parcours BFS sur les connexions des pions. Sur cette base s’intègrent des stratégies de décision (p. ex., Negamax avec hachage et table de transposition) et une évaluation de positions découplée du moteur, qui peut être heuristique ou s’appuyer sur un modèle neuronal de valeur intégré à l’exécutable (exportable en TorchScript), sans lier la conception à une architecture spécifique. De plus, une interface graphique (GUI) en SFML a été développée pour faciliter l’interaction, la visualisation du plateau et les tests du comportement des agents.
+...
 \end{abstract}
 
 \begin{IEEEkeywords}
-Hex game, C++, Object-Oriented Programming, Negamax, Transposition Table, TorchScript, SFML.
+...
 \end{IEEEkeywords}
 
+\input{sections/detectors.tex}
+
 \input{sections/descriptors_pairing.tex}
+
 
 \begin{thebibliography}{00}
     
@@ -67,6 +84,15 @@ P. Perona and J. Malik, ``Scale-space and edge detection using anisotropic diffu
 
 \bibitem{bay_surf_2008}
 H. Bay, A. Ess, T. Tuytelaars, and L. Van Gool, ``SURF: Speeded Up Robust Features,'' \emph{Computer Vision and Image Understanding}, vol. 110, no. 3, pp. 346--359, 2008, accessed Feb. 6, 2026. [Online]. Available: https://www.cs.jhu.edu/~misha/ReadingSeminar/Papers/Bay08.pdf
+
+\bibitem{rublee_orb_2011}
+E. Rublee, V. Rabaud, K. Konolige, and G. R. Bradski, ``ORB: An efficient alternative to SIFT or SURF,'' in \emph{Proc. IEEE International Conference on Computer Vision (ICCV)}, 2011, pp. 2564--2571, doi: 10.1109/ICCV.2011.6126544, accessed Feb. 18, 2026.
+
+\bibitem{alcantarilla_kaze_2012}
+P. F. Alcantarilla, A. Bartoli, and A. J. Davison, ``KAZE Features,'' in \emph{Computer Vision--ECCV 2012}, Lecture Notes in Computer Science, vol. 7577. Springer, 2012, pp. 214--227, doi: 10.1007/978-3-642-33783-3\_16, accessed Feb. 18, 2026.
+
+\bibitem{opencv_orb_class_reference}
+OpenCV, ``cv::ORB Class Reference,'' \emph{OpenCV Documentation}, accessed Feb. 18, 2026. [Online]. Available: \url{https://docs.opencv.org/3.4/db/d95/classcv_1_1ORB.html}
 
 \end{thebibliography}
 
