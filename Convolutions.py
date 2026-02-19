@@ -3,7 +3,11 @@ import cv2
 
 from matplotlib import pyplot as plt
 from image_formats_and_convolutions.analysis import find_image_path
-from image_formats_and_convolutions import generate_q1_analysis
+from image_formats_and_convolutions import (
+    generate_q1_analysis,
+    generate_contrast_enhancement_analysis,
+    generate_gradient_analysis,
+)
 
 #Lecture image en niveau de gris et conversion en float64
 img=np.float64(cv2.imread(str(find_image_path('FlowerGarden2.png')),0))
@@ -50,3 +54,9 @@ plt.show()
 
 # --- Q1 Analysis: generate comparison plots and summary ---
 generate_q1_analysis(img, kernel, img2, img3)
+
+# --- Contrast Enhancement Analysis: explain why this kernel enhances contrast ---
+generate_contrast_enhancement_analysis(img, kernel)
+
+# --- Q3: Gradient Computation and Display ---
+generate_gradient_analysis(img)

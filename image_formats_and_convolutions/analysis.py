@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from .benchmark import benchmark_all_methods, benchmark_vs_image_size
-from .visualization import (
+from .visualizations import (
     plot_timing_comparison,
     plot_timing_boxplot,
     plot_time_vs_image_size,

@@ -1,0 +1,186 @@
+\section{Image Formats and Convolutions}
+
+A discrete two-dimensional convolution is a linear operation that produces an output image by sliding a small matrix, the kernel $K$ of size $(2a+1)\times(2b+1)$, over every pixel of an input image $I$ and computing a weighted sum of the neighborhood, as defined in Eq.~(\ref{eq:conv2d}):
+
+\begin{equation}
+\label{eq:conv2d}
+(I * K)(y,x)=\sum_{j=-a}^{a}\sum_{i=-b}^{b} I(y+j,\,x+i)\;K(j,i).
+\end{equation}
+
+This operation is the computational basis for a range of image-processing tasks such as smoothing, sharpening, edge detection, and feature extraction, all depending on the choice of kernel \cite{gonzalez_woods_dip}.
+
+\subsection{OpenCV and Matplotlib Functions}
+
+The provided code in \texttt{Convolutions.py} relies on several OpenCV and Matplotlib functions whose behavior needs to be understood to interpret the results correctly.
+
+The image is loaded with \texttt{cv2.imread(path, 0)}, where the flag \texttt{0} forces grayscale loading as a single-channel 8-bit array, and the result is cast to \texttt{float64} via \texttt{np.float64()} so that subsequent convolution operations can produce values outside $[0,255]$ without overflow. For copying the image, the code calls \texttt{cv2.copyMakeBorder\allowbreak(img,\allowbreak0,0,0,0,\allowbreak cv2.BORDER\_REPLICATE)} with zero padding on every side, which in practice just creates a deep copy; the \texttt{BORDER\_REPLICATE} flag would replicate edge pixels if positive padding were specified. The optimized convolution is done via \texttt{cv2.filter2D(img, -1, kernel)}, where \texttt{-1} means the output keeps the same depth as the input; internally, this delegates to OpenCV's C++ backend, which can use SIMD and multi-threading \cite{opencv_filter2d}.
+
+An important detail concerns the display conventions: \texttt{cv2.imshow} interprets integer arrays on $\{0,\ldots,255\}$ but floating-point arrays on $[0,1]$, which is why the code divides by $255$ when showing the \texttt{filter2D} result. On the other hand, \texttt{plt.imshow} normalizes the array range to the colormap by default, so to get a consistent grayscale display the code explicitly sets \texttt{vmin=0.0, vmax=255.0} and \texttt{cmap='gray'}.
+
+\subsection{Direct Computation vs OpenCV filter2D}
+
+The code compares two ways of computing the convolution of the grayscale image \texttt{FlowerGarden2.png} ($240\times360$ pixels) with the $3\times3$ sharpening kernel. The first is a direct method that uses a nested Python loop over all interior pixels $(y,x)$ with $1 \le y \le h{-}2$, $1 \le x \le w{-}2$, computing explicitly:
+
+\begin{equation}
+\label{eq:direct_val}
+v = 5\,I(y,x) - I(y{-}1,x) - I(y,x{-}1) - I(y{+}1,x) - I(y,x{+}1),
+\end{equation}
+
+followed by a clamp $I_{\text{out}}(y,x) = \min(\max(v,\,0),\,255)$. The second is a single call to \texttt{cv2.filter2D}, which does the same operation but through OpenCV's compiled C++ backend.
+
+Given the nature of these two implementations, the hypothesis is straightforward: the direct Python loop should be dramatically slower than \texttt{filter2D}, because every pixel iteration goes through the Python interpreter with dynamic type checking, whereas the C++ path processes contiguous memory with compiled instructions and can leverage SIMD vectorization and multi-threading. We would also expect that, for a small image like this one, enabling or disabling multi-threading in OpenCV should not make a large difference, since the overhead of thread synchronization could offset the parallelism gains when the workload per thread is small.
+
+To test this, each method was benchmarked over multiple independent runs (5 for the slow direct method, 20 for the fast \texttt{filter2D} variants), and the median execution time was retained to mitigate warm-up and scheduling noise. A single-thread variant of \texttt{filter2D} was measured separately by calling \texttt{cv2.setNumThreads(1)} before execution.
+
+\begin{table}[!t]
+\centering
+\caption{Median execution time for the convolution of a $240\times360$ grayscale image with a $3\times3$ kernel.}
+\label{tab:conv-timing}
+\begin{tabular}{lcr}
+\hline
+Method & Median time & Runs \\
+\hline
+Direct (Python loop)       & 0.6987\,s   &  5 \\
+\texttt{filter2D} (multi-thread) & 0.329\,ms  & 20 \\
+\texttt{filter2D} (1-thread)     & 0.348\,ms  & 20 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/timing_comparison.png}
+  \caption{Median execution time comparison (log scale) for the three convolution methods on a $240\times360$ image.}
+  \label{fig:timing-comparison}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/timing_boxplot.png}
+  \caption{Distribution of execution times across all benchmark runs for each method.}
+  \label{fig:timing-boxplot}
+\end{figure}
+
+As reported in Table~\ref{tab:conv-timing} and illustrated in Fig.~\ref{fig:timing-comparison}, the direct Python loop takes about $0.70$\,s while \texttt{filter2D} completes in roughly $0.33$\,ms, giving a speedup of approximately $2\,100\times$. This is consistent with the hypothesis: the per-pixel overhead of the Python interpreter is enormous compared to the compiled, vectorized C++ implementation. The difference between the multi-thread and single-thread variants of \texttt{filter2D} is almost negligible ($0.329$\,ms vs $0.348$\,ms), which also confirms our expectation that thread synchronization cost offsets any parallelism benefit at this image size. Moreover, Fig.~\ref{fig:timing-boxplot} shows that the \texttt{filter2D} measurements have very low variance, reflecting the stability of a compiled implementation, while the direct method exhibits more dispersion---likely caused by Python's garbage collector and OS scheduling interrupting the long-running loop.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/time_vs_image_size.png}
+  \caption{Execution time as a function of image resolution (25\,\%, 50\,\%, 75\,\%, and 100\,\% of the original $240\times360$ image).}
+  \label{fig:time-vs-size}
+\end{figure}
+
+To see how these results scale, the benchmark was repeated on resized versions of the image at 25\,\%, 50\,\%, 75\,\%, and 100\,\% of the original resolution. The hypothesis here is that the direct method should grow roughly quadratically with the number of pixels (since it visits every pixel once in a doubly-nested loop), whereas \texttt{filter2D} should remain nearly flat at these small sizes because the actual convolution time is dwarfed by the fixed overhead of the function call. As shown in Fig.~\ref{fig:time-vs-size}, this is exactly what happens: the direct method curve grows steeply as the resolution increases, consistent with $\mathcal{O}(H \cdot W \cdot k^2)$ complexity, while both \texttt{filter2D} variants stay close to the bottom of the plot across all tested resolutions.
+
+\subsection{Visual and Numerical Comparison}
+
+Since both methods are computing the same mathematical convolution, the hypothesis is that their outputs should be identical in the interior of the image, and that any differences should appear only at the borders due to the different ways each method handles boundary pixels. The direct loop simply skips the border (it only iterates from $y=1$ to $h{-}2$) and leaves the original values there via the initial copy, whereas \texttt{filter2D} applies its own default border extrapolation (\texttt{BORDER\_REFLECT\_101}) before computing the convolution, so the border values will differ.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/visual_comparison.png}
+  \caption{Visual comparison: original image (top left), direct method result (top right), \texttt{filter2D} result (bottom left), and absolute difference amplified $\times10$ (bottom right).}
+  \label{fig:visual-comparison}
+\end{figure}
+
+The results in Fig.~\ref{fig:visual-comparison} confirm this. A pixel-wise comparison shows that $98.9\,\%$ of the pixels are numerically identical between the two outputs, with a mean absolute difference of only $0.575$ gray levels. The maximum difference reaches $153$ gray levels, but as visible in the amplified difference heatmap (bottom right of Fig.~\ref{fig:visual-comparison}), these large differences are concentrated exclusively at the image borders. In the interior, both methods produce the same result, which makes sense because the convolution formula is the same---the only divergence comes from boundary handling, not from the computation itself. This confirms that the performance gap discussed in the previous subsection is purely an implementation-level phenomenon and does not affect the mathematical result.
+
+\subsection{Contrast Enhancement by Unsharp Masking}
+
+The convolution kernel provided in the TP code is:
+
+\begin{equation}
+\label{eq:kernel}
+K=
+\begin{pmatrix}
+ 0 & -1 &  0 \\
+-1 &  5 & -1 \\
+ 0 & -1 &  0
+\end{pmatrix}.
+\end{equation}
+
+To understand why this kernel enhances contrast, we can decompose it algebraically. Noting that the coefficients sum to $0+(-1)+0+(-1)+5+(-1)+0+(-1)+0 = 1$ and that the central value is $5$ while the four cardinal neighbors are $-1$, this can be rewritten as the identity kernel minus the discrete Laplacian:
+
+\begin{equation}
+\label{eq:kernel_decomp}
+K = \underbrace{
+\begin{pmatrix}
+0 & 0 & 0 \\
+0 & 1 & 0 \\
+0 & 0 & 0
+\end{pmatrix}}_{\delta}
+\;-\;
+\underbrace{
+\begin{pmatrix}
+ 0 &  1 &  0 \\
+ 1 & -4 &  1 \\
+ 0 &  1 &  0
+\end{pmatrix}}_{\nabla^{2}}.
+\end{equation}
+
+This means the convolution result can be expressed as:
+
+\begin{equation}
+\label{eq:unsharp}
+I_{\text{out}} = I * K = I - \nabla^{2} I.
+\end{equation}
+
+The Laplacian $\nabla^{2} I$ measures the second-order intensity variation: it is positive where a pixel is darker than its neighbors and negative where it is brighter. Subtracting this from the original image amplifies intensity transitions at edges---the dark side of an edge becomes darker and the bright side becomes brighter---while leaving flat regions essentially unchanged (since $\nabla^{2} I \approx 0$ there). This is the classical \emph{unsharp masking} mechanism \cite{gonzalez_woods_dip}.
+
+Based on this decomposition, the hypothesis is as follows: (1)~the sharpened image should show visually crisper edges compared to the original, with the effect concentrated around contours and fine structures; (2)~the global histogram should become wider (higher standard deviation) because edge pixels are pushed to more extreme values; and (3)~the mean intensity should be approximately preserved, since the Laplacian kernel has zero DC response (its coefficients sum to zero) and therefore does not add or remove energy from the image on average.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/kernel_decomposition.png}
+  \caption{Visual verification of the kernel decomposition $K = \delta - \nabla^{2}$.}
+  \label{fig:kernel-decomp}
+\end{figure}
+
+Fig.~\ref{fig:kernel-decomp} shows the decomposition verified numerically: the element-by-element subtraction $\delta - \nabla^{2}$ reconstructs $K$ exactly.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/unsharp_components.png}
+  \caption{Unsharp masking components: (a)~original image $f$, (b)~Laplacian $\nabla^{2}f$ (red = positive, blue = negative), (c)~$|\nabla^{2}f|$ rescaled to $[0,255]$, (d)~sharpened result $f - \nabla^{2}f$ after clipping.}
+  \label{fig:unsharp-components}
+\end{figure}
+
+When applying the decomposition to the actual image, the components are shown in Fig.~\ref{fig:unsharp-components}. The Laplacian map (panel b) reveals the edge structure: transitions between regions of different intensity appear as pairs of positive and negative values, while flat areas stay near zero. As expected from the hypothesis, the sharpened image (panel d) shows noticeably crisper edges, especially visible in the flower contours and the fence structures, while smooth regions remain essentially identical to the original.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/unsharp_1d_profile.png}
+  \caption{1D profile at row 120: (a)~original signal, (b)~1D Laplacian, (c)~overlay showing how sharpening amplifies transitions.}
+  \label{fig:1d-profile}
+\end{figure}
+
+To visualize the mechanism more clearly, Fig.~\ref{fig:1d-profile} shows a horizontal 1D intensity profile extracted at the middle row ($y = 120$), with the 1D Laplacian approximated by $[1,\,-2,\,1]$. At every intensity transition, the Laplacian produces a zero-crossing pattern with positive and negative lobes on either side. Subtracting this from the original causes the signal to ``overshoot'' at each edge: the bright side becomes brighter and the dark side becomes darker, while flat portions of the signal are left untouched. This is precisely the pointwise mechanism behind the contrast enhancement.
+
+\begin{table}[!t]
+\centering
+\caption{Pixel intensity statistics before and after sharpening.}
+\label{tab:hist-stats}
+\begin{tabular}{lccc}
+\hline
+& Original & Sharp (float) & Sharp (clip) \\
+\hline
+Min   & $0.0$    & $-609.0$ & $0.0$   \\
+Max   & $255.0$  & $877.0$  & $255.0$ \\
+Mean  & $127.14$ & $126.99$ & $129.68$ \\
+Std   & $65.90$  & $136.08$ & $89.58$  \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/histogram_comparison.png}
+  \caption{Histogram comparison: (a)~original (linear), (b)~sharpened clipped (linear) with saturation markers, (c)~sharpened clipped (log scale), (d)~sharpened float before clipping.}
+  \label{fig:histograms}
+\end{figure}
+
+To evaluate the hypotheses quantitatively, Table~\ref{tab:hist-stats} reports the intensity statistics and Fig.~\ref{fig:histograms} shows the histograms. Looking at the results, the standard deviation increases from $65.90$ to $89.58$ after clipping (a $35.9\,\%$ increase), which confirms that the distribution is indeed wider---the pixel values are more spread out, exactly as predicted. The mean is nearly preserved ($127.14$ vs $129.68$), consistent with the zero-DC-response property of the Laplacian; the small shift of about $2.5$ gray levels is explained by the asymmetric effect of clipping, which removes more negative outliers ($16.36\,\%$ of pixels saturated at $0$) than positive ones ($9.81\,\%$ at $255$), slightly biasing the mean upward.
+
+Before clipping, the sharpened values range from $-609$ to $877$ (Table~\ref{tab:hist-stats}), which shows that the Laplacian subtraction can push pixel values far outside the representable $[0,255]$ interval, especially near strong edges. Panel (d) of Fig.~\ref{fig:histograms} makes this visible: the full float-range histogram extends well beyond the dashed red lines that mark the $[0,255]$ boundaries. When these values are clamped, they accumulate at the boundaries, producing the saturation peaks visible in panel (b). The log-scale view in panel (c) helps see past these peaks and reveals that the body of the distribution follows a shape similar to the original but stretched, which is consistent with the increased standard deviation.
+
+In summary, the kernel $K$ achieves contrast enhancement because its algebraic structure is that of unsharp masking: the identity component preserves the base brightness while the subtracted Laplacian amplifies local intensity differences around edges. The experimental results confirm the three hypotheses: edges are visually sharper, the histogram is wider, and the mean is approximately preserved. The side effect is that pixels near strong edges can exceed the dynamic range, causing saturation at $0$ and $255$ after clipping.
