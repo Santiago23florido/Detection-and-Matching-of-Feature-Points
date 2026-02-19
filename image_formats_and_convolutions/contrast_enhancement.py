@@ -8,8 +8,6 @@ _ROOT = Path(__file__).resolve().parent.parent
 _OUTPUT_DIR = _ROOT / "docs" / "rappport" / "imgs" / "convolutions"
 
 
-# --- Kernel decomposition ---
-
 KERNEL_SHARPENING = np.array([[0, -1, 0],
                               [-1, 5, -1],
                               [0, -1, 0]], dtype=np.float64)
@@ -21,7 +19,6 @@ KERNEL_IDENTITY = np.array([[0, 0, 0],
 KERNEL_LAPLACIAN = np.array([[0,  1, 0],
                              [1, -4, 1],
                              [0,  1, 0]], dtype=np.float64)
-
 
 def decompose_kernel(kernel):
     identity = KERNEL_IDENTITY.copy()

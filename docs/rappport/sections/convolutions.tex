@@ -184,3 +184,119 @@ To evaluate the hypotheses quantitatively, Table~\ref{tab:hist-stats} reports th
 Before clipping, the sharpened values range from $-609$ to $877$ (Table~\ref{tab:hist-stats}), which shows that the Laplacian subtraction can push pixel values far outside the representable $[0,255]$ interval, especially near strong edges. Panel (d) of Fig.~\ref{fig:histograms} makes this visible: the full float-range histogram extends well beyond the dashed red lines that mark the $[0,255]$ boundaries. When these values are clamped, they accumulate at the boundaries, producing the saturation peaks visible in panel (b). The log-scale view in panel (c) helps see past these peaks and reveals that the body of the distribution follows a shape similar to the original but stretched, which is consistent with the increased standard deviation.
 
 In summary, the kernel $K$ achieves contrast enhancement because its algebraic structure is that of unsharp masking: the identity component preserves the base brightness while the subtracted Laplacian amplifies local intensity differences around edges. The experimental results confirm the three hypotheses: edges are visually sharper, the histogram is wider, and the mean is approximately preserved. The side effect is that pixels near strong edges can exceed the dynamic range, causing saturation at $0$ and $255$ after clipping.
+
+\subsection{Gradient Computation and Display}
+
+Whereas the previous subsection analyzed a second-order differential operator (the Laplacian $\nabla^{2}I$), we now turn to the first-order differential model. In the differential framework~\cite{manzanera_cours1}, the image is treated as a continuous function $f(x,y)$ and its local behavior is studied through its derivatives. At each point, the gradient vector $\nabla I = (I_x,\,I_y)$ points in the direction of maximum intensity change (orthogonal to the isophote), and its magnitude measures the rate of that change. The gradient is the fundamental building block of edge detection: edges correspond to loci where $\|\nabla I\|$ is large, since they separate regions of different intensity.
+
+\subsubsection{Discrete Approximation via Sobel Kernels}
+
+For discrete images the partial derivatives must be approximated by finite differences computed through convolution. The simplest kernels are $[-1\;\;1]$ and $\left[\begin{smallmatrix}-1\\1\end{smallmatrix}\right]$, but these are very sensitive to noise because they act on a single-pixel baseline. As presented in~\cite{manzanera_cours1}, a standard improvement is to combine the derivative in one direction with a smoothing filter in the orthogonal direction. The Sobel operator implements this idea with the following $3\times3$ masks:
+
+\begin{equation}
+\label{eq:sobel_x}
+h_x =
+\begin{pmatrix}
+-1 & 0 & 1 \\
+-2 & 0 & 2 \\
+-1 & 0 & 1
+\end{pmatrix},
+\qquad
+h_y =
+\begin{pmatrix}
+-1 & -2 & -1 \\
+ 0 &  0 &  0 \\
+ 1 &  2 &  1
+\end{pmatrix}.
+\end{equation}
+
+Each kernel is separable: $h_x$ can be factored as a column smoothing vector $[1,\,2,\,1]^{T}$ times a row derivative $[-1,\,0,\,1]$, and $h_y$ is its transpose. The smoothing component ($[1,\,2,\,1]$ is a binomial approximation to a Gaussian) attenuates noise in the direction perpendicular to the derivative~\cite{gonzalez_woods_dip}, producing edge maps that are thicker but better centered (zero-phase response) and less noisy than the raw $[-1\;\;1]$ difference.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.75\linewidth]{imgs/convolutions/gradient_kernels.png}
+  \caption{Sobel kernels $h_x$ (horizontal derivative) and $h_y$ (vertical derivative) with annotated coefficients.}
+  \label{fig:gradient-kernels}
+\end{figure}
+
+Fig.~\ref{fig:gradient-kernels} shows the two kernels with their annotated coefficient values. Note that both have zero-sum coefficients, which means their Fourier transforms vanish at the origin: a derivative kernel has no DC response, so a constant image produces zero output---consistent with the fact that a constant function has zero derivative everywhere.
+
+The gradient components and the Euclidean norm are then computed as:
+\begin{equation}
+\label{eq:gradient_components}
+I_x = I * h_x, \qquad I_y = I * h_y,
+\end{equation}
+\begin{equation}
+\label{eq:gradient_norm}
+\|\nabla I\| = \sqrt{I_x^{2} + I_y^{2}}.
+\end{equation}
+
+In the implementation, both convolutions are performed with \texttt{cv2.filter2D} using \texttt{cv2.CV\_64F} as the output depth. This is the first and most critical precaution: if the default depth \texttt{-1} were used on a \texttt{uint8} or \texttt{float64}-clipped image, all negative gradient values would be silently clamped to zero, destroying half of the edge information. Since the Sobel kernels are antisymmetric, the output range is symmetric around zero; for the test image we measure $I_x \in [-879,\,730]$ and $I_y \in [-1012,\,974]$.
+
+\subsubsection{Gradient Components}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/gradient_components.png}
+  \caption{Gradient analysis: (a)~original image, (b)~$I_x$ and (c)~$I_y$ with divergent colormap (red = positive, blue = negative), (d)~gradient norm $\|\nabla I\|$, (e)~gradient direction $\theta = \mathrm{atan2}(I_y,I_x)$, (f)~thresholded edges ($\|\nabla I\| > \mu + \sigma$).}
+  \label{fig:gradient-components}
+\end{figure}
+
+Fig.~\ref{fig:gradient-components} presents a six-panel overview of the gradient decomposition applied to the test image. In panel~(b), the horizontal derivative $I_x$ highlights vertical edges: positive values (red) appear on transitions from dark to bright as the $x$ coordinate increases, while negative values (blue) mark the opposite transition. Panel~(c) shows $I_y$, which correspondingly highlights horizontal edges. Since the Sobel operator includes orthogonal smoothing, these edge maps are cleaner and better localized than what raw finite differences would produce.
+
+The Euclidean norm $\|\nabla I\|$ (panel~d) combines both components into a single scalar measure of edge strength. It is always non-negative, so it can be displayed directly with a standard grayscale colormap. The gradient direction $\theta = \mathrm{atan2}(I_y,\,I_x)$ (panel~e) is shown with a circular (HSV) colormap, where the hue encodes the angle from $-\pi$ to $\pi$; this reveals the orientation of each edge in the image. Finally, panel~(f) shows a binary edge map obtained by thresholding the norm at $\mu + \sigma$ (where $\mu$ and $\sigma$ are the mean and standard deviation of $\|\nabla I\|$), giving a simple but effective visualization of the most salient contours.
+
+\begin{table}[!t]
+\centering
+\caption{Statistics of gradient components on the $240\times360$ test image.}
+\label{tab:gradient-stats}
+\begin{tabular}{lrrrr}
+\hline
+Component & Min & Max & Mean & Std \\
+\hline
+$I_x\;(\partial I/\partial x)$ & $-879$ & $730$  & $-3.66$  & $122.60$ \\
+$I_y\;(\partial I/\partial y)$ & $-1012$ & $974$ & $-1.02$  & $183.08$ \\
+$\|\nabla I\|$                 & $0$     & $1070$ & $146.64$ & $164.50$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:gradient-stats} reports the numerical statistics. The means of $I_x$ and $I_y$ are close to zero, which is expected since the Sobel kernels have zero DC response and positive and negative transitions tend to balance over the entire image. The standard deviations ($122.60$ for $I_x$, $183.08$ for $I_y$) indicate that the image has somewhat stronger vertical intensity transitions than horizontal ones. The gradient norm reaches a maximum of $1070$, well above the $[0,255]$ range---this underlines the need for floating-point computation and careful normalization for display.
+
+\subsubsection{Display Precautions}
+
+Since $I_x$ and $I_y$ are signed quantities, displaying them correctly requires specific precautions. Fig.~\ref{fig:display-precautions} compares four strategies side by side for both components:
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/gradient_display_precautions.png}
+  \caption{Four display strategies for the signed gradient components $I_x$ (top row) and $I_y$ (bottom row): (a)~naive clipping to $[0,255]$ (incorrect), (b)~absolute value, (c)~shift and rescale, (d)~divergent colormap (recommended).}
+  \label{fig:display-precautions}
+\end{figure}
+
+\begin{enumerate}
+\item \textbf{Naive clipping to $[0,255]$} (column~a): all negative values are set to zero, so transitions in one direction are completely invisible. This is incorrect and would lead to the false conclusion that edges exist only in one direction of the intensity change. In the figure this manifests as images where roughly half the edges appear to be missing.
+
+\item \textbf{Absolute value $|I_x|$, $|I_y|$} (column~b): edge strength is preserved, but the sign---which encodes the direction of the intensity transition (dark-to-bright vs.\ bright-to-dark)---is lost. This is acceptable when only edge magnitude matters, but it discards useful orientation information.
+
+\item \textbf{Shift and rescale} (column~c): the full range $[\min,\,\max]$ is linearly mapped to $[0,255]$, so that zero maps to a mid-gray value. All information is preserved, and the result can be saved as a standard 8-bit image. The disadvantage is that the visual mapping between gray levels and physical quantities is not immediately intuitive.
+
+\item \textbf{Divergent colormap centered at zero} (column~d, recommended): a symmetric colormap such as \texttt{RdBu\_r} is used with \texttt{TwoSlopeNorm(vcenter=0)}, so that zero maps to white, positive values to red, and negative values to blue. This simultaneously preserves sign information, edge strength, and provides an intuitive reading of the gradient direction.
+\end{enumerate}
+
+The gradient norm $\|\nabla I\|$ is always non-negative, so a standard grayscale display with automatic or manual normalization suffices. No special precaution is required for the norm, only for the signed components.
+
+In summary, the two essential precautions for a correct display of gradient components are: (1)~using a floating-point output depth (\texttt{cv2.CV\_64F}) in the convolution to preserve negative values, and (2)~choosing a visualization strategy that does not discard or misrepresent the sign. The divergent colormap approach satisfies both requirements and is therefore the recommended method.
+
+\subsubsection{1D Profile Analysis}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/convolutions/gradient_1d_profile.png}
+  \caption{1D gradient profile at row 120: (a)~original intensity, (b)~horizontal gradient $I_x$ with positive/negative regions shaded, (c)~gradient norm $\|\nabla I\|$.}
+  \label{fig:gradient-1d-profile}
+\end{figure}
+
+To complement the 2D visualizations, Fig.~\ref{fig:gradient-1d-profile} shows a horizontal 1D profile extracted at the middle row ($y=120$). Panel~(a) displays the original intensity profile, where abrupt transitions between regions of different brightness are clearly visible. Panel~(b) shows the horizontal derivative $I_x$: each intensity transition produces a signed peak whose polarity indicates the direction of the change---positive (red shading) for dark-to-bright and negative (blue shading) for bright-to-dark. In flat regions, $I_x$ stays close to zero. Panel~(c) shows the gradient norm, which converts these signed peaks into positive peaks of edge strength, with the strongest responses at the locations of the sharpest transitions.
+
+This 1D view makes explicit the relationship between the first-order differential model and edge detection: the gradient operator acts as a high-pass filter that responds to intensity transitions, and the signed components preserve the directionality of each transition while the norm provides a direction-independent measure of edge strength.

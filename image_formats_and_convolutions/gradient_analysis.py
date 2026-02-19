@@ -9,8 +9,6 @@ _ROOT = Path(__file__).resolve().parent.parent
 _OUTPUT_DIR = _ROOT / "docs" / "rappport" / "imgs" / "convolutions"
 
 
-# --- Gradient kernels (ref: cours 1, p. 55 — Sobel masks) -----------------
-
 SOBEL_X = np.array([[-1, 0, 1],
                     [-2, 0, 2],
                     [-1, 0, 1]], dtype=np.float64)
@@ -19,16 +17,8 @@ SOBEL_Y = np.array([[-1, -2, -1],
                     [ 0,  0,  0],
                     [ 1,  2,  1]], dtype=np.float64)
 
-
-# --- Gradient computation --------------------------------------------------
-
 def compute_gradient(img, kernel_x=None, kernel_y=None):
-    """Compute Ix, Iy, ||∇I|| and gradient direction using cv2.filter2D.
-
-    The key precaution is to request cv2.CV_64F as output depth so that
-    negative values in Ix and Iy are preserved (a uint8 output would
-    silently clip them to 0).
-    """
+    # Compute Ix, Iy, ||∇I|| and direction (CV_64F preserves negatives)
     if kernel_x is None:
         kernel_x = SOBEL_X
     if kernel_y is None:
@@ -50,15 +40,7 @@ def compute_gradient(img, kernel_x=None, kernel_y=None):
 
 
 def display_strategies(component):
-    """Generate different representations for visualising a signed component.
-
-    Returns four arrays illustrating the display strategies discussed in
-    the report:
-      - naive_clip: clip to [0, 255] — INCORRECT, loses negatives
-      - absolute:   |component| — shows edge strength, loses sign
-      - rescaled:   shift+scale [min, max] → [0, 255], mid-gray = zero
-      - raw:        unchanged float64 for divergent colormap display
-    """
+    # Generate naive_clip, absolute, rescaled and raw views of a signed component
     naive_clip = np.clip(component, 0, 255)
     absolute = np.abs(component)
 
@@ -77,7 +59,7 @@ def display_strategies(component):
 
 
 def gradient_statistics(gradient):
-    """Return min / max / mean / std for each gradient array."""
+    # Return min / max / mean / std for ix, iy, norm
     stats = {}
     for name in ["ix", "iy", "norm"]:
         arr = gradient[name]
@@ -90,10 +72,8 @@ def gradient_statistics(gradient):
     return stats
 
 
-# --- Main entry point (called from Convolutions.py) -----------------------
-
 def generate_gradient_analysis(img_original):
-    """Full Q3 pipeline: compute gradient, print statistics, save plots."""
+    # Full Q3 pipeline: compute gradient, print stats, save plots
     from .visualizations import (
         plot_gradient_components,
         plot_display_precautions,
