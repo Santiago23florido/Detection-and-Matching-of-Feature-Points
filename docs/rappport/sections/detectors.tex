@@ -337,7 +337,7 @@ This way, we keep corners that are both reliable (good Harris response) and well
 distributed spatially, which is often preferable to a very dense
 local selection in a small region of the image.
 
-\section{Alternative Detectors: ORB and KAZE}
+\section{Feature Methods: ORB and KAZE}
 
 Within a computer vision pipeline, a detector seeks interest points that satisfy three main properties.
 
@@ -528,3 +528,220 @@ The KAZE detector performs the following steps:
     \end{tabular}
     \endgroup
 \end{table}
+
+\subsection{ORB Parameters}
+
+In OpenCV (\texttt{cv2.ORB\_create(...)}), the most important parameters and their practical effect are summarized in Table~\ref{tab:orb_params}.
+
+\begin{table}[H]
+    \centering
+    \caption{Main ORB parameters in OpenCV and their practical effect.}
+    \label{tab:orb_params}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.18\linewidth} p{0.34\linewidth} p{0.42\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{What it controls} & \textbf{Practical effect (typically when increased)} \\
+        \hline
+        \texttt{nfeatures} & Maximum number of retained keypoints & More points (more coverage) and more runtime; may include weaker points \\
+        \texttt{scaleFactor} & Scale factor between pyramid levels & Levels become farther apart (greater scale sampling); often faster but less precise in scale \\
+        \texttt{nlevels} & Number of pyramid levels & Better scale coverage, higher computational cost \\
+        \texttt{fast} \texttt{Threshold} & Threshold $t$ in the FAST segment test & Fewer corners (stricter detection); often fewer false positives, but weak points can be lost \\
+        \texttt{scoreType} & Corner ranking score (Harris vs FAST score) & Harris is usually more stable (slightly higher cost) than the pure FAST score \\
+        \texttt{edge} \texttt{Threshold} & Border margin where features are suppressed & Avoids keypoints too close to the border; can remove useful boundary points \\
+        \texttt{patchSize} & Patch size for orientation/descriptor & Larger patch: more context (potentially more robust), higher cost \\
+        \texttt{WTA\_K} & Number of points per BRIEF test ($2$, $3$, or $4$) & Changes descriptor statistics/discriminability; requires the appropriate matching norm \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\noindent For reference, Table~\ref{tab:orb_defaults} reports OpenCV's default values for the same parameters.
+\begin{table}[H]
+    \centering
+    \caption{OpenCV default values for main ORB parameters.}
+    \label{tab:orb_defaults}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.5\linewidth} p{0.50\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{OpenCV default value} \\
+        \hline
+        \texttt{nfeatures} & \texttt{500} \\
+        \texttt{scaleFactor} & \texttt{1.2} \\
+        \texttt{nlevels} & \texttt{8} \\
+        \texttt{fastThreshold} & \texttt{20} \\
+        \texttt{scoreType} & \texttt{HARRIS\_SCORE} \\
+        \texttt{edgeThreshold} & \texttt{31} \\
+        \texttt{patchSize} & \texttt{31} \\
+        \texttt{WTA\_K} & \texttt{2} \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\textbf{Direct relation to \texttt{Features\_Detect.py}.} In that code, ORB is called as follows:
+
+\begin{verbatim}
+# ORB
+cv2.ORB_create(nfeatures=250, 
+    scaleFactor=2, nlevels=3)
+\end{verbatim}
+
+This choice has clear effects:
+\begin{itemize}
+    \item \texttt{nfeatures=250} (lower than the default $500$): forces fewer points. Expected effect: fewer drawn keypoints and less computation, but less coverage of the scene.
+    \item \texttt{scaleFactor=2} (higher than the default $1.2$): creates a ``coarser'' pyramid. Expected effect: fewer effective intermediate scales, potentially lower repeatability under small scale changes, but faster processing.
+    \item \texttt{nlevels=3} (lower than the default $8$): evaluates fewer scales. Expected effect: lower robustness to scale changes, lower cost.
+\end{itemize}
+
+\subsection{KAZE Parameters}
+
+In OpenCV (\texttt{cv2.KAZE\_create(...)}), the most important parameters and their 
+practical effect are summarized in Table~\ref{tab:kaze_params}.
+
+\begin{table}[H]
+    \centering
+    \caption{Main KAZE parameters in OpenCV and their practical effect.}
+    \label{tab:kaze_params}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.16\linewidth} p{0.34\linewidth} p{0.37\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{What it controls} & \textbf{Practical effect (typically when increased / enabled)} \\
+        \hline
+        \texttt{threshold} & Detector response threshold & Stricter detection: fewer keypoints, but stronger and often more stable ones \\
+        \texttt{nOctaves} & Scale range (octaves) & Wider scale range, higher computational cost \\
+        \texttt{nOctave} \texttt{Layers} & Sub-levels per octave & Finer scale sampling, higher computational cost \\
+        \texttt{upright} & Whether orientation is computed & \texttt{True}: faster but loses rotation invariance; \texttt{False}: more robust to rotation \\
+        \texttt{diffu} \texttt{-sivity} & Diffusion type (edge-preserving) & Changes the smoothing/edge-preservation tradeoff, affecting keypoint distribution and stability \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\noindent For reference, Table~\ref{tab:kaze_defaults} reports OpenCV's default values for the same parameters.
+
+\begin{table}[H]
+    \centering
+    \caption{OpenCV default values for main KAZE parameters.}
+    \label{tab:kaze_defaults}
+    \begingroup
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{p{0.5\linewidth} p{0.4\linewidth}}
+        \hline
+        \textbf{Parameter} & \textbf{OpenCV default value} \\
+        \hline
+        \texttt{upright} & \texttt{False} \\
+        \texttt{threshold} & \texttt{0.001} \\
+        \texttt{nOctaves} & \texttt{4} \\
+        \texttt{nOctaveLayers} & \texttt{4} \\
+        \texttt{diffusivity} & \texttt{2} \\
+        \hline
+    \end{tabular}
+    \endgroup
+\end{table}
+
+\noindent \textbf{Note.} As stated above KAZE detects extrema in $(x,y,\text{scale})$ using a Hessian-based response computed on the nonlinear scale space. A common simplified response is the normalized Hessian determinant:
+
+\begin{equation}
+R(\sigma)=\sigma^2\left(L_{xx}L_{yy}-L_{xy}^2\right),
+\end{equation}
+where $L_{xx}$, $L_{yy}$, and $L_{xy}$ are second derivatives at scale $\sigma$.
+
+\textbf{Direct relation to \texttt{Features\_Detect.py}.} In that code, KAZE is called as follows:
+
+\begin{verbatim}
+# KAZE
+cv2.KAZE_create(upright=False,
+    threshold=0.001,
+    nOctaves=4,
+    nOctaveLayers=4,
+    diffusivity=2)
+\end{verbatim}
+
+This choice has clear effects:
+\begin{itemize}
+    \item \texttt{upright=False}: KAZE computes a dominant orientation per keypoint. Expected effect: better rotation invariance, at higher cost.
+    \item \texttt{threshold=0.001}: controls how many keypoints pass the detector threshold. Expected effect: lowering it yields more points (including weaker ones); increasing it yields fewer but more stable points.
+    \item \texttt{nOctaves=4} and \texttt{nOctaveLayers=4}: determine the explored scale range and scale sampling density. Expected effect: more octaves/layers increases multiscale coverage but also increases runtime.
+    \item \texttt{diffusivity=2}: selects a diffusion family. Expected effect: changes the balance between intra-region smoothing and edge preservation, affecting repeatability and localization.
+\end{itemize}
+
+
+\subsection{Results}
+
+The script \texttt{Features\_Detect.py} was executed with ORB and KAZE on
+\texttt{torb\_small1.png} and \texttt{torb\_small2.png}, using the parameter
+settings described in the previous subsections.
+Each timing statistic was computed from a sample of 50 runs per method.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{../../results/method_features/ORB/detected_keypoints.png}
+    \caption{ORB keypoints detected on the test image pair.}
+    \label{fig:orb_detected_keypoints}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{../../results/method_features/KAZE/detected_keypoints.png}
+    \caption{KAZE keypoints detected on the test image pair.}
+    \label{fig:kaze_detected_keypoints}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{ORB timing statistics over 50 runs.}
+    \label{tab:orb_timing_stats}
+    \begin{tabular}{lc}
+        \hline
+        Metric & Value \\
+        \hline
+        Mean time [s] & 0.002083 \\
+        Time variance [s$^2$] & $2.962301 \times 10^{-7}$ \\
+        Time standard deviation [s] & 0.000544 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{KAZE timing statistics over 50 runs.}
+    \label{tab:kaze_timing_stats}
+    \begin{tabular}{lc}
+        \hline
+        Metric & Value \\
+        \hline
+        Mean time [s] & 0.176525 \\
+        Time variance [s$^2$] & $4.627195 \times 10^{-4}$ \\
+        Time standard deviation [s] & 0.021511 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Analysis of results}
+
+From the results in Figs.~\ref{fig:orb_detected_keypoints}--\ref{fig:kaze_detected_keypoints} 
+and Tables~\ref{tab:orb_timing_stats}--\ref{tab:kaze_timing_stats}, we have :
+
+\begin{itemize}
+    \item \textbf{KAZE is significantly slower than ORB.}
+    The mean processing time for ORB is $0.002083\,$s (Table~\ref{tab:orb_timing_stats}), while for KAZE 
+    it is $0.176525\,$s (Table~\ref{tab:kaze_timing_stats}). KAZE is about $84.7\times$ slower in this experiment.
+    This is consistent with the internal cost of each method: ORB relies on FAST-type tests on an image pyramid (simple intensity comparisons), whereas KAZE constructs a nonlinear scale space (edge-preserving diffusion) and evaluates Hessian-type responses across scales, which requires substantially heavier computations.
+
+    \item \textbf{ORB keypoint circles appear larger than KAZE circles (scale vs ``precision'').}
+    In our visualization, keypoints are drawn with rich information (position, scale, and orientation), meaning the circle radius is proportional to the keypoint \emph{size} (its detected scale).
+    ORB uses a discrete pyramid and assigns scales tied to pyramid levels (and to the patch/descriptor size), which can lead to larger and more quantized circles, especially with a coarse pyramid (\texttt{scaleFactor=2}, \texttt{nlevels=3}).
+    KAZE, on the other hand, detects extrema in a (nonlinear) scale space and typically yields a characteristic scale that is more smoothly related to the local structure, which often results in smaller circles.
+    Therefore, smaller circles do not automatically mean ``more precise localization''; they mainly indicate that the keypoints are selected at smaller characteristic scales, although KAZE can indeed appear more tightly localized in many cases due to its scale-space formulation and refinement.
+
+    \item \textbf{Repeatability across the two frames is visually consistent.}
+    Even though the scene changes between \texttt{torb\_small1.png} and \texttt{torb\_small2.png}, the detections remain attached to the same stable structures (corners and textured regions) in both figures.
+    This visual consistency is an important qualitative indicator of repeatability, which is precisely what enables reliable matching or tracking between frames.
+
+    \item \textbf{Additional remarks (stability and distribution).}
+    KAZE also shows a much larger timing variance and standard deviation (Table~\ref{tab:kaze_timing_stats}) than ORB (Table~\ref{tab:orb_timing_stats}), which is expected for a heavier multi-scale diffusion-based computation whose cost can be more sensitive to image content and the number of detected candidates.
+    Finally, it is worth remembering that ORB explicitly caps the number of returned points with \texttt{nfeatures}, while KAZE is mainly controlled by \texttt{threshold}; this can affect the density and spatial distribution of keypoints, which in turn impacts how well the points cover the scene for downstream geometric estimation.
+\end{itemize}
