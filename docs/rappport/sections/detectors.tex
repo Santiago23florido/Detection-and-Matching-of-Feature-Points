@@ -152,7 +152,7 @@ RELATIVE_THRESHOLD = 0.01
     \item Image type (color) : \texttt{uint8}.
 \end{itemize}
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{Statistics over 50 runs of the Harris detector}
     \label{tab:harris_stats}
@@ -170,7 +170,7 @@ RELATIVE_THRESHOLD = 0.01
     \end{tabular}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
     \includegraphics[width=\linewidth]{../../results/harris_points.png}
     \caption{Visualization of interest points detected by Harris on \texttt{Graffiti0.png}.}
@@ -187,7 +187,7 @@ During each sweep, the other parameters remain fixed to:
 \texttt{MAXLOC\_NEIGHBORHOOD\_SIZE = 3},
 \texttt{RELATIVE\_THRESHOLD = 0.01}.
 
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
     \begin{minipage}[t]{0.48\linewidth}
         \centering
@@ -214,7 +214,7 @@ the number of weak detected corners. Conversely, a small window captures more
 micro-variations (more potential corners), at the cost of stronger sensitivity
 to noise and therefore a higher risk of false positives.
 
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
     \begin{minipage}[t]{0.48\linewidth}
         \centering
@@ -241,7 +241,7 @@ ambiguous points near edges), while a high \texttt{HARRIS\_K}
 reinforces trace penalization, so selection becomes stricter
 and the number of corners tends to decrease, with better geometric stability.
 
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
     \begin{minipage}[t]{0.48\linewidth}
         \centering
@@ -507,7 +507,7 @@ The KAZE detector performs the following steps:
 
 \subsection{ORB vs KAZE Comparison}
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{ORB vs KAZE comparison}
     \label{tab:orb_vs_kaze}
@@ -533,7 +533,7 @@ The KAZE detector performs the following steps:
 
 In OpenCV (\texttt{cv2.ORB\_create(...)}), the most important parameters and their practical effect are summarized in Table~\ref{tab:orb_params}.
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{Main ORB parameters in OpenCV and their practical effect.}
     \label{tab:orb_params}
@@ -557,7 +557,7 @@ In OpenCV (\texttt{cv2.ORB\_create(...)}), the most important parameters and the
 \end{table}
 
 \noindent For reference, Table~\ref{tab:orb_defaults} reports OpenCV's default values for the same parameters.
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{OpenCV default values for main ORB parameters.}
     \label{tab:orb_defaults}
@@ -600,7 +600,7 @@ This choice has clear effects:
 In OpenCV (\texttt{cv2.KAZE\_create(...)}), the most important parameters and their 
 practical effect are summarized in Table~\ref{tab:kaze_params}.
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{Main KAZE parameters in OpenCV and their practical effect.}
     \label{tab:kaze_params}
@@ -622,7 +622,7 @@ practical effect are summarized in Table~\ref{tab:kaze_params}.
 
 \noindent For reference, Table~\ref{tab:kaze_defaults} reports OpenCV's default values for the same parameters.
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{OpenCV default values for main KAZE parameters.}
     \label{tab:kaze_defaults}
@@ -676,21 +676,21 @@ The script \texttt{Features\_Detect.py} was executed with ORB and KAZE on
 settings described in the previous subsections.
 Each timing statistic was computed from a sample of 50 runs per method.
 
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
     \includegraphics[width=\linewidth]{../../results/method_features/ORB/detected_keypoints.png}
     \caption{ORB keypoints detected on the test image pair.}
     \label{fig:orb_detected_keypoints}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
     \includegraphics[width=\linewidth]{../../results/method_features/KAZE/detected_keypoints.png}
     \caption{KAZE keypoints detected on the test image pair.}
     \label{fig:kaze_detected_keypoints}
 \end{figure}
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{ORB timing statistics over 50 runs.}
     \label{tab:orb_timing_stats}
@@ -705,7 +705,7 @@ Each timing statistic was computed from a sample of 50 runs per method.
     \end{tabular}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[!t]
     \centering
     \caption{KAZE timing statistics over 50 runs.}
     \label{tab:kaze_timing_stats}
