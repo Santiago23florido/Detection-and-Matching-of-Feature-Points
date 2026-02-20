@@ -42,11 +42,11 @@
 \maketitle
 
 \begin{abstract}
-...
+This report presents a practical study of the local-feature pipeline for image matching, covering convolution fundamentals, interest-point detection, descriptor computation, and feature pairing. We first benchmark a direct Python convolution against OpenCV's optimized \texttt{filter2D}, observing a speedup of roughly $2\,100\times$, and analyze the sharpening kernel as a Laplacian-based unsharp mask together with Sobel gradient filters. We then examine the Harris corner detector, including its parametric sensitivity and extension to multi-scale operation. Two complete feature methods are compared in depth: ORB (Oriented FAST and Rotated BRIEF), a fast binary descriptor suited for real-time applications, and KAZE, which builds a nonlinear, edge-preserving scale space and produces a floating-point M-SURF descriptor. Matching strategies---cross-check, ratio test, and FLANN---are evaluated both qualitatively and quantitatively under controlled geometric transformations (rotation, scale, and synthetic viewpoint tilt). Results show that both methods achieve high precision under rotation and moderate scale changes, while KAZE consistently yields more correct correspondences under viewpoint variations, at the cost of significantly higher computation time.
 \end{abstract}
 
 \begin{IEEEkeywords}
-...
+local features, image matching, convolution, Harris corner detector, ORB, KAZE, feature descriptors, nonlinear scale space, unsharp masking, FLANN
 \end{IEEEkeywords}
 
 \input{sections/convolutions.tex}
